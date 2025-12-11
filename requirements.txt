@@ -1,0 +1,3 @@
+pdfplumber
+Flask
+Flask-Cors

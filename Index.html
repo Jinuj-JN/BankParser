@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Statement AI Parser (Configurable)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#1e293b' },
+                        brand: { ai: '#8b5cf6', accent: '#0ea5e9' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .drop-zone { border: 2px dashed #cbd5e1; transition: all 0.3s ease; }
+        .drop-zone.dragover { border-color: #8b5cf6; background-color: #f5f3ff; }
+        .scroller::-webkit-scrollbar { width: 8px; height: 8px; }
+        .scroller::-webkit-scrollbar-track { background: #f1f5f9; }
+        .scroller::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .code-editor { font-family: 'Fira Code', monospace; line-height: 1.5; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col">    
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-slate-200 shrink-0 z-40">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">            
+                <div class="flex items-center gap-3">                    
+                    <button onclick="app.reset()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-hidden flex flex-col lg:flex-row">
+        
+        <!-- LEFT PANEL: Ingestion & Config -->
+        <div class="w-full lg:w-1/3 bg-white border-r border-slate-200 flex flex-col h-full shadow-xl z-30">
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-200">
+                <button onclick="ui.setTab('upload')" id="tab-upload" class="flex-1 py-3 text-sm font-bold text-brand-ai border-b-2 border-brand-ai">Input</button>
+                <button onclick="ui.setTab('config')" id="tab-config" class="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-700">⚙️ Parser Config</button>
+            </div>
+
+            <!-- Tab: Upload -->
+            <div id="view-upload" class="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
+                <div id="drop-zone" class="drop-zone rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer bg-slate-50 hover:bg-slate-100 group transition-all">
+                    <input type="file" id="pdf-upload" accept=".pdf" class="hidden" onchange="app.handleFileUpload(this)">
+                    
+                    <div id="upload-prompt" class="w-full flex flex-col items-center justify-center">
+                        <i class="fa-solid fa-file-pdf text-4xl text-slate-300 mb-3 group-hover:text-brand-ai transition-colors"></i>
+                        <p class="text-sm font-bold text-slate-600">Drop Bank Statement PDF</p>
+                        <p class="text-xs text-slate-400 mt-1">Lili, F&M, or Custom</p>
+                        <button onclick="document.getElementById('pdf-upload').click()" class="mt-4 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai">Browse Files</button>
+                    </div>
+
+                    <div id="file-info" class="hidden w-full">
+                        <i class="fa-solid fa-check-circle text-4xl text-emerald-500 mb-3"></i>
+                        <p id="file-name" class="text-sm font-bold text-slate-600"></p>
+                        <div class="mt-4 flex gap-2 justify-center">
+                            <button onclick="app.openPreview()" class="px-4 py-2 bg-brand-ai text-white rounded-lg text-xs font-bold shadow-sm hover:bg-violet-700">Preview</button>
+                            <button onclick="app.clearFile()" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold shadow-sm hover:border-red-500 hover:text-red-500">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 justify-center">
+                    <button onclick="app.loadSample('lili')" class="text-[10px] px-2 py-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 hover:bg-indigo-100">Load Lili Sample</button>
+                    <button onclick="app.loadSample('fm')" class="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 hover:bg-emerald-100">Load F&M Sample</button>
+                </div>
+
+                <div class="flex-1 flex flex-col">
+                    <label class="text-xs font-bold text-slate-400 uppercase mb-2 flex justify-between">
+                        <span>Extracted Text Layer</span>
+                        <span id="text-status" class="text-orange-500 hidden"><i class="fa-solid fa-spinner fa-spin"></i> Processing...</span>
+                    </label>
+                    <textarea id="raw-input" class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600" placeholder="Raw text will appear here..."></textarea>
+                </div>
+                
+                <button onclick="app.runParser()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg text-sm font-bold shadow-lg transition-all flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-gears"></i> Parse Data
+                </button>
+            </div>
+
+            <!-- Tab: Config -->
+            <div id="view-config" class="hidden flex-1 flex flex-col p-4 gap-4 h-full">
+                <!-- AI Provider Config -->
+                <div class="border-b border-slate-200 pb-4">
+                    <label class="text-xs font-bold text-slate-500 uppercase">AI Provider</label>
+                    <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                            <label for="ai-platform" class="text-xs font-medium text-slate-600">Platform</label>
+                            <select id="ai-platform" onchange="app.saveAiSettings()" class="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-ai outline-none">
+                                <option value="gemini">Gemini</option>
+                                <option value="openai">OpenAI (ChatGPT)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="api-key" class="text-xs font-medium text-slate-600">API Key</label>
+                            <input type="password" id="api-key" onkeyup="app.saveAiSettings()" class="w-full mt-1 p-2 font-mono bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-ai outline-none" placeholder="Enter your API key...">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2 mb-2">
+                    <label class="text-xs font-bold text-slate-500 uppercase">Step-by-Step AI Generator</label>
+                   
+                    <!-- 1. Identity -->
+                    <button onclick="ai.generatePart('identity')" id="btn-id" class="w-full py-2 bg-white border border-slate-200 rounded shadow-sm text-xs font-bold text-slate-700 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group">
+                        <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3 group-hover:bg-brand-ai group-hover:text-white transition-colors">1</span>
+                        <div class="text-left flex-1">
+                            <span class="block">Bank Name & Account #</span>
+                        </div>
+                        <i class="fa-solid fa-wand-magic-sparkles text-slate-300"></i>
+                    </button>
+
+                    <!-- 2. Balances -->
+                    <button onclick="ai.generatePart('balances')" id="btn-bal" class="w-full py-2 bg-white border border-slate-200 rounded shadow-sm text-xs font-bold text-slate-700 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group">
+                        <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3 group-hover:bg-brand-ai group-hover:text-white transition-colors">2</span>
+                        <div class="text-left flex-1">
+                            <span class="block">Opening Balance & Dates</span>
+                        </div>
+                        <i class="fa-solid fa-wand-magic-sparkles text-slate-300"></i>
+                    </button>
+
+                    <!-- 3. Transactions -->
+                    <button onclick="ai.generatePart('transactions')" id="btn-tx" class="w-full py-2 bg-white border border-slate-200 rounded shadow-sm text-xs font-bold text-slate-700 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group">
+                        <span class="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mr-3 group-hover:bg-brand-ai group-hover:text-white transition-colors">3</span>
+                        <div class="text-left flex-1">
+                            <span class="block">Transaction Table Regex</span>
+                        </div>
+                        <i class="fa-solid fa-wand-magic-sparkles text-slate-300"></i>
+                    </button>
+
+                    <button onclick="ai.generatePart('full')" class="w-full py-2 bg-white border-2 border-dashed border-slate-300 rounded-lg text-xs font-bold text-slate-500 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group justify-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Auto-Generate Full Config (One-Shot)</span>
+                    </button>
+
+                    <!-- Custom Prompt -->
+                   <!-- <div class="mt-2 border-t pt-3">
+                         <label class="text-xs font-bold text-slate-500 uppercase">Custom AI Prompt</label>
+                        <textarea id="custom-prompt-input" class="w-full p-2 mt-1 text-xs font-mono bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-y" rows="3" placeholder="e.g., Create a regex for the customer name located between 'Prepared for:' and 'Account Number'. Respond in JSON: { &quot;fields&quot;: { &quot;customerName&quot;: &quot;...&quot; } }"></textarea>
+                        <button onclick="ai.generatePart('custom')" class="w-full mt-1 py-2 bg-slate-100 border border-slate-200 rounded text-xs font-bold text-slate-600 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group justify-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Send Custom Prompt</span>
+                        </button>
+                    </div> -->
+
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-bold text-slate-500 uppercase">Active Configuration (JSON)</label>
+                    <span id="ai-status" class="text-xs text-brand-ai font-bold animate-pulse hidden">AI Generating...</span>
+                </div>
+
+                <textarea id="config-editor" class="flex-1 w-full p-3 text-xs font-mono bg-slate-900 text-emerald-400 border border-slate-700 rounded-lg outline-none resize-none code-editor" spellcheck="false"></textarea>
+                
+                <button onclick="app.saveConfigToFile()" class="w-full bg-brand-ai hover:bg-violet-700 text-white py-2 rounded-lg text-sm font-bold transition-all mb-2">
+                    Save to Templates
+                </button>
+                <button onclick="app.saveConfig()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 rounded-lg text-sm font-bold transition-all">
+                    Apply Configuration
+                </button>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Dashboard -->
+        <div class="flex-1 bg-slate-50 overflow-y-auto scroller p-6 lg:p-10 relative">
+            
+            <!-- Welcome State -->
+            <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                <i class="fa-regular fa-file-lines text-6xl mb-4 opacity-20"></i>
+                <p class="text-lg font-medium">Ready to Analyze</p>
+                <p class="text-sm">Upload a statement to begin</p>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div id="dashboard" class="hidden space-y-8 max-w-5xl mx-auto">
+                
+                <!-- 1. Identity Card -->
+                <div id="bank-header" class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start gap-6 border-l-4 border-l-brand-ai">
+                    <div class="flex gap-4">
+                        <div class="w-14 h-14 bg-slate-100 rounded-lg flex items-center justify-center text-2xl text-slate-400">
+                            <i class="fa-solid fa-building-columns"></i>
+                        </div>
+                        <div>
+                            <h2 id="disp-bank-name" class="text-2xl font-bold text-slate-800">Bank Name</h2>
+                            <p class="text-sm text-slate-500 font-mono mt-1">Acct: <span id="disp-acct-num">--</span></p>
+                            <p class="text-xs text-slate-400 mt-1"><i class="fa-regular fa-calendar mr-1"></i> <span id="disp-period">--</span></p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Customer</p>
+                        <p id="disp-cust-name" class="font-bold text-slate-700 text-lg">--</p>
+                        <p id="disp-cust-addr" class="text-sm text-slate-500 max-w-xs ml-auto">--</p>
+                    </div>
+                </div>
+
+                <!-- 2. AI Insights -->
+                <!-- <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold flex items-center gap-2"><i class="fa-solid fa-robot"></i> AI Financial Executive Summary</h3>
+                            <button onclick="ai.generateSummary()" id="btn-summary" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-xs font-bold transition-colors">Analyze</button>
+                        </div>
+                        <div id="ai-summary-text" class="text-sm opacity-90 leading-relaxed prose prose-invert max-w-none min-h-[100px]">
+                            Click 'Analyze' to generate a Gemini-powered summary of these transactions.
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <h3 class="font-bold text-slate-700 mb-2">Ask Gemini</h3>
+                        <div id="chat-response" class="flex-1 overflow-y-auto text-sm text-slate-600 mb-3 bg-slate-50 p-2 rounded h-24 italic">
+                            "What is the total spent on gas?"
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="chat-input" class="flex-1 border border-slate-200 rounded px-2 py-1 text-sm focus:outline-brand-ai" placeholder="Ask a question...">
+                            <button onclick="ai.ask()" class="bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700"><i class="fa-solid fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                </div> -->
+
+                <!-- 3. Financial Summary -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-xs text-slate-400 font-bold uppercase">Start Balance</p>
+                        <p id="val-start-bal" class="text-xl font-bold text-slate-700 mt-1">--</p>
+                    </div>
+                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm border-b-4 border-b-emerald-500">
+                        <p class="text-xs text-slate-400 font-bold uppercase">Total Credits</p>
+                        <p id="val-credits" class="text-xl font-bold text-emerald-600 mt-1">--</p>
+                        <p id="count-credits" class="text-[10px] text-slate-400">0 txns</p>
+                    </div>
+                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm border-b-4 border-b-red-500">
+                        <p class="text-xs text-slate-400 font-bold uppercase">Total Debits</p>
+                        <p id="val-debits" class="text-xl font-bold text-red-600 mt-1">--</p>
+                        <p id="count-debits" class="text-[10px] text-slate-400">0 txns</p>
+                    </div>
+                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-xs text-slate-400 font-bold uppercase">End Balance</p>
+                        <p id="val-end-bal" class="text-xl font-bold text-slate-900 mt-1">--</p>
+                    </div>
+                </div>
+
+                <!-- 4. Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="font-bold text-slate-700 mb-4 text-sm">Daily Balance Trend</h4>
+                        <div class="h-64 relative"><canvas id="chart-balance"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="font-bold text-slate-700 mb-4 text-sm">Transaction Volume</h4>
+                        <div class="h-64 relative"><canvas id="chart-flow"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- 5. Transactions Table -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                        <h3 class="font-bold text-slate-800">Transactions</h3>
+                        <span class="text-xs px-2 py-1 bg-white border rounded text-slate-500" id="tx-count">0 items</span>
+                    </div>
+                    <div class="overflow-x-auto scroller max-h-[500px]">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-white text-slate-500 font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
+                                <tr>
+                                    <th class="p-4 bg-slate-50">Date</th>
+                                    <th class="p-4 bg-slate-50">Description</th>
+                                    <th class="p-4 bg-slate-50">Type</th>
+                                    <th class="p-4 bg-slate-50">Check #</th>
+                                    <th class="p-4 bg-slate-50 text-right">Amount</th>
+                                    <th class="p-4 bg-slate-50 text-right">Run Bal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tx-body" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- PDF Modal -->
+    <div id="pdf-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 id="pdf-modal-title" class="font-bold text-lg">PDF Preview</h3>
+                <button onclick="app.closePreview()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 p-2 bg-slate-100">
+                <embed id="modal-pdf-embed" src="" type="application/pdf" width="100%" height="100%">
+            </div>
+        </div>
+    </div>
+
+    <!-- CORE LOGIC -->
+    <script>
+        // --- 1. CONFIGURATION REGISTRY (End-user modifiable) ---
+        let DefaultConfigs = {};
+
+        // --- 2. PARSER ENGINE ---
+        const Parser = {
+            parseMoney: (str) => {
+                if (!str) return 0;
+                let clean = str.toString().replace(/[$,\s"\n]/g, '');
+                if (clean.includes('(') && clean.includes(')')) clean = '-' + clean.replace(/[()]/g, '');
+                return parseFloat(clean) || 0;
+            },
+
+            execute: (text, config) => {
+                const result = { 
+                    bank: config.name, 
+                    accountNumber: "N/A", 
+                    period: "N/A", 
+                    customer: {}, 
+                    summary: { start: 0, end: 0, credits: 0, debits: 0 },
+                    transactions: [] 
+                };
+
+                // 1. Extract Fields via Regex
+                try {
+                    if (config.fields.accountNumber) {
+                        const m = text.match(new RegExp(config.fields.accountNumber));
+                        if (m) result.accountNumber = m[1];
+                    }
+                    if (config.fields.period) {
+                        const m = text.match(new RegExp(config.fields.period));
+                        if (m) result.period = m[1];
+                    }
+                    if (config.fields.startBalance) {
+                        const m = text.match(new RegExp(config.fields.startBalance));
+                        if (m) result.summary.start = Parser.parseMoney(m[1]);
+                    }
+                    if (config.fields.endBalance) {
+                        const m = text.match(new RegExp(config.fields.endBalance));
+                        if (m) result.summary.end = Parser.parseMoney(m[1]);
+                    }
+                    // Customer extraction
+                    if (config.fields.customerStart && config.fields.customerEnd) {
+                        const s = text.indexOf(config.fields.customerStart);
+                        const e = text.indexOf(config.fields.customerEnd);
+                        if (s > -1 && e > s) {
+                            const block = text.substring(s + config.fields.customerStart.length, e).trim();
+                            const lines = block.split('\n').filter(l => l.trim());
+                            result.customer.name = lines[0] || "Unknown";
+                            result.customer.address = lines.slice(1).join(', ');
+                        }
+                    }
+                } catch (e) { console.error("Field extraction error", e); }
+
+                // 2. Extract Transactions based on Strategy
+                if (config.strategy === 'row_reconstructor') {
+                    // Lili Specific Logic (Smart Block Analysis)
+                    const dateRegex = /"(\d{1,2}\/\d{1,2}\/\d{4})/g;
+                    let match;
+                    const indices = [];
+                    while ((match = dateRegex.exec(text)) !== null) indices.push({index: match.index, date: match[1]});
+                    
+                    for (let i = 0; i < indices.length; i++) {
+                        const current = indices[i];
+                        const next = indices[i+1];
+                        const endIdx = next ? next.index : text.indexOf("Ending Balance", current.index);
+                        if (endIdx === -1) continue;
+                        
+                        const block = text.substring(current.index, endIdx);
+                        const tokens = [...block.matchAll(/"([^"]*)"/g)].map(m => ({val: m[1], idx: m.index}));
+                        
+                        if (tokens.length >= 2) {
+                            let desc = tokens[1].val.replace(/[\r\n]+/g, ' ').trim();
+                            let amount = 0, type = 'debit', balance = 0, checkNum = "";
+                            
+                            // Check for Check #
+                            const chk = desc.match(/\b(\d{4,6})\b/);
+                            if (chk && !desc.includes("Ref#" + chk[1])) checkNum = chk[1];
+
+                            // Money
+                            const moneyTokens = tokens.slice(2).filter(t => /[0-9]/.test(t.val));
+                            if (moneyTokens.length > 0) {
+                                const amtVal = Parser.parseMoney(moneyTokens[0].val);
+                                // Determine type by gap analysis
+                                const gap = block.substring(tokens[1].idx + tokens[1].val.length, moneyTokens[0].idx);
+                                if (gap.includes(',,') || gap.includes(', ,')) { type = 'debit'; amount = -Math.abs(amtVal); }
+                                else { type = 'credit'; amount = Math.abs(amtVal); }
+                                
+                                if (moneyTokens.length > 1) balance = Parser.parseMoney(moneyTokens[1].val);
+                            }
+                            result.transactions.push({ date: current.date, description: desc, amount, type, balance, checkNumber: checkNum });
+                        }
+                    }
+                } else if (config.strategy === 'regex_rows') {
+                    // F&M Logic
+                    const regex = new RegExp(config.transactionRegex, 'g');
+                    let match;
+                    while ((match = regex.exec(text)) !== null) {
+                        const amt = Parser.parseMoney(match[3]);
+                        const isDebit = amt > 0; // F&M lists debits as positive numbers in the checks list
+                        result.transactions.push({
+                            date: match[1] + "/2025", // Infer year
+                            description: match[2],
+                            amount: isDebit ? -amt : amt,
+                            type: isDebit ? 'debit' : 'credit',
+                            balance: 0,
+                            checkNumber: ""
+                        });
+                    }
+                }
+
+                // Calc totals
+                result.summary.credits = result.transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+                result.summary.debits = result.transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+
+                return result;
+            }
+        };
+
+        // --- 3. APPLICATION LOGIC ---
+        const app = {
+            currentConfig: null,
+            currentText: "",
+            parsedData: null,
+            chartInstances: {},
+            currentFile: null,
+            currentPdfUrl: null,
+            aiPlatform: 'gemini',
+            apiKey: '',
+
+            saveAiSettings: () => {
+                app.aiPlatform = document.getElementById('ai-platform').value;
+                app.apiKey = document.getElementById('api-key').value;
+                localStorage.setItem('aiPlatform', app.aiPlatform);
+                localStorage.setItem('apiKey', app.apiKey);
+                // No alert needed for this frequent action
+            },
+
+            loadAiSettings: () => {
+                const platform = localStorage.getItem('aiPlatform');
+                const key = localStorage.getItem('apiKey');
+                if (platform) {
+                    app.aiPlatform = platform;
+                    document.getElementById('ai-platform').value = platform;
+                }
+                if (key) {
+                    app.apiKey = key;
+                    document.getElementById('api-key').value = key;
+                }
+            },
+
+            openPreview: () => {
+                if (app.currentPdfUrl) {
+                    document.getElementById('modal-pdf-embed').src = app.currentPdfUrl;
+                    document.getElementById('pdf-modal-title').innerText = app.currentFile.name;
+                    document.getElementById('pdf-modal').classList.remove('hidden');
+                }
+            },
+
+            closePreview: () => {
+                document.getElementById('modal-pdf-embed').src = '';
+                document.getElementById('pdf-modal').classList.add('hidden');
+            },
+
+            clearFile: () => {
+                // Reset file input
+                const uploader = document.getElementById('pdf-upload');
+                uploader.value = null;
+                
+                // Revoke URL
+                if (app.currentPdfUrl) {
+                    URL.revokeObjectURL(app.currentPdfUrl);
+                }
+
+                // Clear state
+                app.currentFile = null;
+                app.currentPdfUrl = null;
+                app.currentText = "";
+                document.getElementById('raw-input').value = "";
+                document.getElementById('text-status').classList.add('hidden');
+
+                // Toggle UI
+                document.getElementById('upload-prompt').classList.remove('hidden');
+                document.getElementById('file-info').classList.add('hidden');
+                document.getElementById('file-name').innerText = "";
+            },
+
+
+            init: () => {
+                app.loadAiSettings(); // Load AI settings first
+                const firstConfigKey = Object.keys(DefaultConfigs)[0];
+                if (firstConfigKey) {
+                    app.currentConfig = DefaultConfigs[firstConfigKey];
+                    document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
+                }
+            },
+
+            reset: () => {
+                window.location.reload();
+            },
+
+            detectBank: (text) => {
+                for (const key in DefaultConfigs) {
+                    const config = DefaultConfigs[key];
+                    if (config.identifiers && Array.isArray(config.identifiers)) {
+                        for (const identifier of config.identifiers) {
+                            // Using a case-insensitive check
+                            if (text.toLowerCase().includes(identifier.toLowerCase())) {
+                                console.log(`Detected bank: ${key}`);
+                                return key; // Return the key of the matching config
+                            }
+                        }
+                    }
+                }
+                console.log("No bank detected.");
+                return null; // No match found
+            },
+
+            handleFileUpload: async (input) => {
+                const file = input.files[0];
+                if (!file) {
+                    app.clearFile();
+                    return;
+                }
+                
+                // Revoke previous PDF object URL
+                if (app.currentPdfUrl) {
+                    URL.revokeObjectURL(app.currentPdfUrl);
+                }
+
+                app.currentFile = file;
+                app.currentPdfUrl = URL.createObjectURL(file);
+
+                // Update UI
+                document.getElementById('file-name').innerText = file.name;
+                document.getElementById('upload-prompt').classList.add('hidden');
+                document.getElementById('file-info').classList.remove('hidden');
+
+                // Select UI elements
+                const statusEl = document.getElementById('text-status');
+                const resultEl = document.getElementById('raw-input');
+
+                // Set Loading State
+                statusEl.classList.remove('hidden');
+                statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+                resultEl.value = 'Processing...';
+
+                // Prepare the upload using FormData
+                const url = 'http://127.0.0.1:5000/parse'; //
+                const form = new FormData();
+                form.append('file', file, file.name); //
+
+                try {
+                    const res = await fetch(url, { method: 'POST', body: form }); //
+                    const data = await res.json(); //
+
+                    if (!res.ok) {
+                        statusEl.innerHTML = 'Error: ' + (data.error || res.statusText);
+                        const errorString = JSON.stringify(data, null, 2);
+                        resultEl.value = errorString;
+                        app.currentText = errorString; // Capture error state
+                    } else {
+                        statusEl.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> Done';
+                        
+                        const extractedText = data.ExtractedPdfText || "";
+                        
+                        // Update UI
+                        resultEl.value = extractedText; 
+                        
+                        // Update internal app state as requested
+                        app.currentText = extractedText; 
+                        console.log('Extracted Text :', extractedText); 
+                        const detectedBankKey = app.detectBank(app.currentText);
+                        console.log('Detected Bank Key:', detectedBankKey);
+                        if (detectedBankKey) {
+                            app.currentConfig = DefaultConfigs[detectedBankKey];
+                            document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
+                        } else {
+                            app.currentConfig = null;
+                            document.getElementById('config-editor').value = '';
+                        }
+                    }
+                } catch (err) {
+                    statusEl.innerHTML = 'Request failed: ' + err.message; //
+                    resultEl.value = '' + err;
+                }
+            },
+
+            loadSample: (type) => {
+                const samples = {
+                    lili: `--- PAGE 1 ---\n"Account Number","Statement Period"\n"260102978186","1 Aug 2025-31 Aug, 2025"\n\n"Summary","Amount"\n"Beginning balance on 1 Aug, 2025","+$20,789.62"\n"Ending balance on 31 Aug, 2025","+$18,699.20"\n\n"Date","Check","Description","Deposits","Withdrawals","Ending Day Balance"\n"8/4/2025","4315\n\n\nPayroll Check J. McNally Ref#612448969\n",,"\n$2,500.00\n",\n"8/6/2025","65652\n\n\nMobile Check Deposit Knightolic Ref# 265446825\n","\n$27,560.00\n",,"\n$34,194.32\n"`,
+                    fm: `--- PAGE 1 ---\nFM BANK\n"Date","10/31/25"\n"Account No.","16114779"\n"Beginning Balance","1,349.27"\n"Ending Balance","925.20"\n"Checks In Number Order"\n"10/06","1170","420.08"\n"10/06","1171","400.00"`
+                };
+                app.currentText = samples[type];
+                document.getElementById('raw-input').value = app.currentText;
+                app.currentConfig = DefaultConfigs[type];
+                document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
+            },
+
+            saveConfig: () => {
+                try {
+                    const json = JSON.parse(document.getElementById('config-editor').value);
+                    app.currentConfig = json;
+                    // Run the parser again with the new config
+                    if(app.currentText) app.runParser();
+                    alert("Configuration Applied & Updated!");
+                } catch(e) { alert("Invalid JSON"); }
+            },
+
+            saveConfigToFile: async () => {
+                try {
+                    const configEditor = document.getElementById('config-editor');
+                    const currentConfig = JSON.parse(configEditor.value);
+
+                    if (!currentConfig.name) {
+                        alert("Configuration must have a 'name' field to be saved.");
+                        return;
+                    }
+                    
+                    let keyToUpdate = null;
+                    // Find existing config by name to update it
+                    for(const key in DefaultConfigs) {
+                        if(DefaultConfigs[key].name === currentConfig.name) {
+                            keyToUpdate = key;
+                            break;
+                        }
+                    }
+
+                    // If not found, create a new key from the name
+                    const configKey = keyToUpdate || currentConfig.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+
+                    DefaultConfigs[configKey] = currentConfig;
+                    
+                    const url = 'http://127.0.0.1:5000/save_templates'; 
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(DefaultConfigs, null, 2) // Send pretty-printed JSON
+                    });
+
+                    if (res.ok) {
+                        alert(`Configuration '${currentConfig.name}' saved successfully!`);
+                    } else {
+                        const error = await res.json();
+                        alert(`Error saving configuration: ${error.error || 'Unknown error'}`);
+                    }
+
+                } catch (e) {
+                    alert("Invalid JSON in config editor. Cannot save.\n" + e.message);
+                }
+            },
+
+            runParser: () => {
+                if (!app.currentText) return alert("No text to parse");
+                try {
+                    const data = Parser.execute(app.currentText, app.currentConfig);
+                    app.parsedData = data;
+                    app.renderDashboard(data);
+                } catch (e) { console.error(e); alert("Parsing failed. Check config."); }
+            },
+
+            renderDashboard: (data) => {
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('dashboard').classList.remove('hidden');
+                
+                // Header
+                document.getElementById('disp-bank-name').innerText = data.bank;
+                document.getElementById('disp-acct-num').innerText = data.accountNumber;
+                document.getElementById('disp-period').innerText = data.period;
+                document.getElementById('disp-cust-name').innerText = data.customer.name || "";
+                document.getElementById('disp-cust-addr').innerText = data.customer.address || "";
+
+                // Stats
+                document.getElementById('val-start-bal').innerText = "$" + data.summary.start.toFixed(2);
+                document.getElementById('val-end-bal').innerText = "$" + data.summary.end.toFixed(2);
+                document.getElementById('val-credits').innerText = "$" + data.summary.credits.toFixed(2);
+                document.getElementById('val-debits').innerText = "$" + Math.abs(data.summary.debits).toFixed(2);
+                
+                document.getElementById('count-credits').innerText = data.transactions.filter(t=>t.amount>0).length + " txns";
+                document.getElementById('count-debits').innerText = data.transactions.filter(t=>t.amount<0).length + " txns";
+
+                // Table
+                const tbody = document.getElementById('tx-body');
+                document.getElementById('tx-count').innerText = data.transactions.length + " items";
+                tbody.innerHTML = data.transactions.map(t => `
+                    <tr>
+                        <td class="p-4 bg-white font-mono text-xs">${t.date}</td>
+                        <td class="p-4 bg-white font-medium">${t.description}</td>
+                        <td class="p-4 bg-white text-xs capitalize"><span class="px-2 py-1 rounded-full font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${t.type}</span></td>
+                        <td class="p-4 bg-white"><span class="bg-slate-100 px-2 py-1 rounded text-xs">${t.checkNumber || '-'}</span></td>
+                        <td class="p-4 bg-white text-right font-bold ${t.amount>0?'text-emerald-600':'text-red-600'}">${t.amount.toFixed(2)}</td>
+                        <td class="p-4 bg-white text-right text-slate-400 text-xs">${t.balance ? t.balance.toFixed(2) : '-'}</td>
+                    </tr>
+                `).join('');
+
+                // Charts
+                app.renderCharts(data);
+            },
+
+            renderCharts: (data) => {
+                if(app.chartInstances.bal) app.chartInstances.bal.destroy();
+                if(app.chartInstances.flow) app.chartInstances.flow.destroy();
+
+                app.chartInstances.bal = new Chart(document.getElementById('chart-balance'), {
+                    type: 'line',
+                    data: {
+                        labels: data.transactions.map(t=>t.date),
+                        datasets: [{
+                            label: 'Balance',
+                            data: data.transactions.map(t=>t.balance || 0),
+                            borderColor: '#8b5cf6',
+                            tension: 0.4,
+                            pointRadius: 2
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}}, scales:{x:{display:false}} }
+                });
+
+                app.chartInstances.flow = new Chart(document.getElementById('chart-flow'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['In', 'Out'],
+                        datasets: [{
+                            data: [data.summary.credits, Math.abs(data.summary.debits)],
+                            backgroundColor: ['#10b981', '#ef4444'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}} }
+                });
+            }
+        };
+
+        // --- 4. AI SERVICE ---
+        const ai = {
+            _validate: () => {
+                if (!app.apiKey) {
+                    alert("AI API Key is missing. Please add the correct Key.");
+                    return false;
+                }
+                return true;
+            },
+
+            call: async (prompt) => {
+                let url, headers, body;
+
+                if (app.aiPlatform === 'openai') {
+                    url = 'https://api.openai.com/v1/chat/completions';
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${app.apiKey}`
+                    };
+                    body = JSON.stringify({
+                        model: "gpt-4-turbo", // Or another suitable model
+                        messages: [{ role: "user", content: prompt }],
+                        temperature: 0.1
+                    });
+                } else { // Default to Gemini
+                    url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${app.apiKey}`;
+                    headers = { 'Content-Type': 'application/json' };
+                    body = JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.1 }
+                    });
+                }
+
+                try {
+                    const res = await fetch(url, { method: 'POST', headers: headers, body: body });
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        console.error("AI API Error:", errorData);
+                        throw new Error(`API request failed with status ${res.status}: ${errorData.error?.message || 'Unknown error'}`);
+                    }
+                    const data = await res.json();
+
+                    if (app.aiPlatform === 'openai') {
+                        return data.choices[0].message.content;
+                    } else {
+                        return data.candidates[0].content.parts[0].text;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    alert(`AI Request Failed: ${e.message}`);
+                    return `AI Error: ${e.message}`;
+                }
+            },
+
+            generatePart: async (part) => {
+                if (!ai._validate()) return;
+                const raw = document.getElementById('raw-input').value;
+                if (!raw) return alert("No text available. Upload a PDF first.");
+               
+                const status = document.getElementById('ai-status');
+                status.innerText = `Analyzing ${part}...`;
+                status.classList.remove('hidden');
+
+                let currentConfig = {};
+                try { currentConfig = JSON.parse(document.getElementById('config-editor').value); } catch(e){}
+
+                let prompt = "";
+               
+                // STEP 1: IDENTITY
+                if (part === 'identity') {
+                    prompt = `Analyze this text for Bank Name and Account Number only.
+                    Text: ${raw.substring(0, 1000)}...
+                    Requirements:
+                    1. Find 'name': The bank name.
+                    2. Create regex for 'accountNumber': Look for "Account Number", "Account No". capture digits.
+                    3. IMPORTANT: Use Standard JavaScript Regex strings. Do NOT use inline modifiers like '(?i)'. Use character classes like [Aa]ccount instead.
+                   
+                    Response Format JSON: { "name": "...", "fields": { "accountNumber": "regex_here" } }`;
+                }
+               
+                // STEP 2: BALANCES
+                else if (part === 'balances') {
+                    prompt = `Analyze text for Opening/Closing Balances and Statement Period.
+                    Text: ${raw.substring(0, 2000)}...
+                    Requirements:
+                    1. Create regex for 'startBalance' (Beginning/Previous/Start Balance).
+                    2. Create regex for 'endBalance' (Ending/Current/Closing Balance).
+                    3. Create regex for 'period' (Statement Period/Dates).
+                    4. IMPORTANT: Use Standard JavaScript Regex strings. Do NOT use inline modifiers like '(?i)'. Use character classes like [Bb]alance instead.
+                   
+                    Response Format JSON: { "fields": { "startBalance": "regex_here", "endBalance": "regex_here", "period": "regex_here" } }`;
+                }
+               
+                // STEP 3: TRANSACTIONS
+                else if (part === 'transactions') {
+                    prompt = `Analyze the transaction table layout.
+                    Text: ${raw.substring(0, 3000)}...
+                    Requirements:
+                    1. Determine 'strategy': "row_reconstructor" (if CSV-like with broken lines) OR "regex_rows" (clean lines).
+                    2. Create 'transactionRegex' to capture groups: (1:Date, 2:Desc, 3:Amount).
+                    3. IMPORTANT: Use Standard JavaScript Regex strings. Do NOT use inline modifiers like '(?i)'.
+                   
+                    Response Format JSON: { "strategy": "...", "transactionRegex": "..." }`;
+                }
+                // STEP 4: FULL CONFIG (ONE-SHOT)
+                else if (part === 'full') {
+                    prompt = `Analyze the following bank statement text and generate a complete JSON configuration to parse it.
+                    Text: ${raw.substring(0, 4000)}...
+                    
+                    Requirements:
+                    1.  **name**: The bank's name.
+                    2.  **strategy**: "row_reconstructor" for complex, multi-line transaction rows (like Lili bank), or "regex_rows" for clean, single-line transaction rows (like F&M bank).
+                    3.  **identifiers**: An array of unique keywords to identify this bank.
+                    4.  **fields**: An object with JavaScript regex strings for "accountNumber", "period", "startBalance", and "endBalance".
+                    5.  **transactionRegex**: A JavaScript regex string with capture groups for (1:Date, 2:Description, 3:Amount). This is mainly for the "regex_rows" strategy.
+
+                    IMPORTANT: The entire output must be a single, valid JSON object. Use standard JavaScript regex strings without inline modifiers.
+
+                    Example Response Format:
+                    { "name": "...", "strategy": "...", "identifiers": ["..."], "fields": { "accountNumber": "...", "period": "...", "startBalance": "...", "endBalance": "..." }, "transactionRegex": "..." }`;
+                }
+                // STEP 5: CUSTOM PROMPT
+                else if (part === 'custom') {
+                    const customPrompt = document.getElementById('custom-prompt-input').value;
+                    if (!customPrompt) return alert("Custom prompt cannot be empty.");
+                    
+                    // The prompt is the user's input, plus the raw text context.
+                    prompt = `Given the following text:\n\n${raw.substring(0, 4000)}...\n\n---\n\n${customPrompt}`;
+                }
+
+                const response = await ai.call(prompt);
+                if (response.startsWith("AI Error") || response === "API Key Missing") return;
+                const cleanJson = response.replace(/```json|```/g, '').trim();
+               
+                try {
+                    const newPart = JSON.parse(cleanJson);
+                    // Merge
+                    if (part === 'full') {
+                        // For a full generation, we replace the entire config
+                        currentConfig = newPart;
+                    } else {
+                        // For partial generations, we merge the fields
+                        if (newPart.name) currentConfig.name = newPart.name;
+                    }
+                    if (newPart.name) currentConfig.name = newPart.name;
+                    if (newPart.strategy) currentConfig.strategy = newPart.strategy;
+                    if (newPart.transactionRegex) currentConfig.transactionRegex = newPart.transactionRegex;
+                    if (newPart.fields) {
+                        if (!currentConfig.fields) currentConfig.fields = {};
+                        Object.assign(currentConfig.fields, newPart.fields);
+                    }
+
+                    document.getElementById('config-editor').value = JSON.stringify(currentConfig, null, 2);
+                    status.innerText = "Done!";
+                    setTimeout(() => status.classList.add('hidden'), 2000);
+                } catch(e) { alert("AI parsing error. Try again."); status.classList.add('hidden'); }
+            },
+
+            generateSummary: async () => {
+                if (!ai._validate()) return;
+                if(!app.parsedData) return;
+                const out = document.getElementById('ai-summary-text');
+                out.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...';
+                
+                const txs = JSON.stringify(app.parsedData.transactions.slice(0, 30));
+                const prompt = `Analyze these bank transactions: ${txs}. 
+                Provide an "Executive Summary" in Markdown. 
+                Include: 
+                1. **Burn Rate** (Total Debits). 
+                2. **Top Expense Categories**. 
+                3. **Anomalies** (Large or unusual checks). 
+                Keep it brief and professional.`;
+
+                const res = await ai.call(prompt);
+                if (res.startsWith("AI Error") || res === "API Key Missing") return;
+                out.innerHTML = marked.parse(res);
+            },
+
+            ask: async () => {
+                if (!ai._validate()) return;
+                if(!app.parsedData) return;
+                const q = document.getElementById('chat-input').value;
+                if(!q) return;
+                
+                const box = document.getElementById('chat-response');
+                box.innerText = "Thinking...";
+                
+                const txs = JSON.stringify(app.parsedData.transactions);
+                const prompt = `Context: ${txs}. User Question: "${q}". Answer concisely.`;
+                
+                const res = await ai.call(prompt);
+                if (res.startsWith("AI Error") || res === "API Key Missing") return;
+                box.innerText = res;
+            }
+        };
+
+        const ui = {
+            setTab: (tab) => {
+                document.getElementById('view-upload').classList.add('hidden');
+                document.getElementById('view-config').classList.add('hidden');
+                document.getElementById('tab-upload').classList.remove('text-brand-ai', 'border-b-2', 'border-brand-ai');
+                document.getElementById('tab-config').classList.remove('text-brand-ai', 'border-b-2', 'border-brand-ai');
+                
+                document.getElementById(`view-${tab}`).classList.remove('hidden');
+                document.getElementById(`tab-${tab}`).classList.add('text-brand-ai', 'border-b-2', 'border-brand-ai');
+            }
+        };
+
+        // Init
+        fetch('templates.json')
+            .then(response => response.json())
+            .then(data => {
+                DefaultConfigs = data;
+                app.init(); // Initialize the app after loading configs
+            })
+            .catch(error => {
+                console.error('Error loading templates.json:', error);
+                alert('Could not load templates.json. Please check the file and console for errors.');
+            });
+
+    </script>
+</body>
+</html>

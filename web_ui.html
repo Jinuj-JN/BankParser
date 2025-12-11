@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bank Parser - Upload PDF</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    .card { border: 1px solid #ddd; padding: 1rem; border-radius: 6px; }
+    pre { background:#f7f7f7; padding:1rem; overflow:auto; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <h1>Bank Statement Parser</h1>
+  <div class="card">
+    <label for="file">Select PDF file</label><br />
+    <input id="file" type="file" accept="application/pdf" />
+    <button id="upload">Upload & Parse</button>
+    <label style="margin-left:1rem"><input id="raw" type="checkbox" /> Show raw text preview on failure</label>
+    <p id="status"></p>
+  </div>
+
+  <h2>Result</h2>
+  <div class="card">
+    <pre id="result">No result yet.</pre>
+  </div>
+
+  <script>
+    const uploadBtn = document.getElementById('upload');
+    const fileInput = document.getElementById('file');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const showRaw = document.getElementById('raw');
+
+    async function postFile(file) {
+      const url = 'http://127.0.0.1:5000/parse'; // change if your API runs elsewhere
+      const form = new FormData();
+      form.append('file', file, file.name);
+
+      statusEl.textContent = 'Uploading...';
+      resultEl.textContent = '';
+
+      try {
+        const res = await fetch(url, { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = 'Error: ' + (data.error || res.statusText);
+          resultEl.textContent = JSON.stringify(data, null, 2);
+        } else {
+          statusEl.textContent = 'OK';
+          resultEl.textContent = JSON.stringify(data, null, 2);
+        }
+      } catch (err) {
+        statusEl.textContent = 'Request failed: ' + err.message;
+        resultEl.textContent = '' + err;
+      }
+    }
+
+    uploadBtn.addEventListener('click', () => {
+      const f = fileInput.files[0];
+      if (!f) {
+        statusEl.textContent = 'Please choose a PDF file first.';
+        return;
+      }
+      resultEl.textContent = 'Processing...';
+      postFile(f);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+    "central_bank__trust_co": {
+        "name": "Central Bank & Trust Co.",
+        "strategy": "row_reconstructor",
+        "identifiers": [
+            "CentralBank&TrustCo.",
+            "Lexington,KY 40588-1360",
+            "BUSINESS CHECKING",
+            "PARKERINC FORACCOUNTNUMBER"
+        ],
+        "fields": {
+            "accountNumber": "(?:Account Number:|PRIMARY ACCOUNT:)\\s*(\\d{8})",
+            "period": "FORSTATEMENTPERIOD:\\s*(\\d{2}/\\d{2}/\\d{2}TO\\d{2}/\\d{2}/\\d{2})",
+            "startBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n\\s*(\\d{1,3}(?:,\\d{3})*\\.\\d{2})",
+            "endBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n(?:[^\\n]+)(\\d{1,3}(?:,\\d{3})*\\.\\d{2})"
+        },
+        "transactionRegex": "(\\d{2}/\\d{2})\\s+(\\d{1,3}(?:,\\d{3})*\\.\\d{2})(?:\\s+)?([^\\n]+)"
+    },
+    "lili_bank_statement": {
+        "name": "Lili Bank Statement",
+        "strategy": "regex_rows",
+        "fields": {
+            "accountNumber": "Account Number Statement Period\\s*([\\d]{12})",
+            "period": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance": "Beginning balance on [\\w\\s,-]+ (\\$[\\d,]+\\.\\d{2})",
+            "endBalance": "Ending balance on [\\w\\s,-]+ (\\$[\\d,]+\\.\\d{2})"
+        },
+        "transactionRegex": "(\\d{2}/\\d{2}/\\d{4})\\s+[\\d]+\\s+(.+?)\\s+(\\$-?[\\d,]+\\.\\d{2})\\s+\\$[\\d,]+\\.\\d{2}"
+    },
+    "lili_bank": {
+        "name": "Lili Bank",
+        "strategy": "regex_rows",
+        "identifiers": [
+            "Lili Plan Fee",
+            "Lili Rewards",
+            "Checking Account Activity - Main Account"
+        ],
+        "fields": {
+            "accountNumber": "Account Number\\s+Statement Period\\s*(\\d+)",
+            "period": "Statement Period\\s*(\\d{1,2}\\s+\\w+,\\s+\\d{4}\\s*-\\s*\\d{1,2}\\s+\\w+,\\s+\\d{4})",
+            "startBalance": "Beginning balance.*?(\\S?[-]?\\$?[\\d,]+\\.\\d{2})",
+            "endBalance": "Ending balance.*?(\\S?[-]?\\$?[\\d,]+\\.\\d{2})"
+        },
+        "transactionRegex": "^(\\d{2}\\/\\d{2}\\/\\d{4})\\s+[\\d\\w]+\\s+(.+?)\\s+(\\S?-?[\\d,]+\\.\\d{2})\\s+\\S?-?[\\d,]+\\.\\d{2}$"
+    }
+}
