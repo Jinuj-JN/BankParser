@@ -125,7 +125,7 @@
                             <span class="block">Bank Name & Account #</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <i onclick="event.stopPropagation(); ui.showPromptModal('identity')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                           
+                            <i onclick="event.stopPropagation(); ui.showPromptModal('identity', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                           
                         </div>
                     </button>
 
@@ -136,7 +136,7 @@
                             <span class="block">Opening Balance & Dates</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <i onclick="event.stopPropagation(); ui.showPromptModal('balances')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
+                            <i onclick="event.stopPropagation(); ui.showPromptModal('balances', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
                         </div>
                     </button>
 
@@ -147,7 +147,7 @@
                             <span class="block">Transaction Table Regex</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <i onclick="event.stopPropagation(); ui.showPromptModal('transactions')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
+                            <i onclick="event.stopPropagation(); ui.showPromptModal('transactions', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
                         </div>
                     </button>
 
@@ -156,7 +156,7 @@
                             <i class="fa-solid fa-wand-magic-sparkles"></i>
                             <span>Auto-Generate Full Config (One-Shot)</span>
                         </div>
-                        <i onclick="event.stopPropagation(); ui.showPromptModal('full')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>
+                        <i onclick="event.stopPropagation(); ui.showPromptModal('full', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>
                     </button>
 
                     <!-- Custom Prompt -->
@@ -913,7 +913,7 @@
                 document.getElementById(`tab-${tab}`).classList.add('text-brand-ai', 'border-b-2', 'border-brand-ai');
             },
             currentEditingPrompt: null,
-            showPromptModal: (part) => {
+            showPromptModal: (part, buttonElement) => {
                 ui.currentEditingPrompt = part;
                 
                 // Load the specific prompt from the JSON file on demand
@@ -927,14 +927,16 @@
                             // Fallback to whatever is in memory if the file is incomplete
                             document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
                         }
-                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${part.charAt(0).toUpperCase() + part.slice(1)}`;
+                        const buttonText = buttonElement.closest('button').querySelector('.text-left span, .text-center span').textContent.trim();
+                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${buttonText}`;
                         document.getElementById('ai-prompt-modal').classList.remove('hidden');
                     })
                     .catch(error => {
                         console.error('Error loading prompts.json for modal:', error);
                         // Fallback to in-memory prompt on error
                         document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
-                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${part.charAt(0).toUpperCase() + part.slice(1)}`;
+                        const buttonText = buttonElement.closest('button').querySelector('.text-left span, .text-center span').textContent.trim();
+                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${buttonText}`;
                         document.getElementById('ai-prompt-modal').classList.remove('hidden');
                         alert('Could not load latest prompts from server. Displaying cached version.');
                     });
