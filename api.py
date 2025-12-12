@@ -14,10 +14,22 @@ def serve_index():
     """Serves the main index.html file."""
     return send_from_directory('.', 'index.html')
 
-@app.route('/templates.json')
-def serve_templates():
-    """Serves the templates.json file."""
-    return send_from_directory('.', 'templates.json')
+@app.route('/data/<path:filename>')
+def serve_data(filename):
+    """Serves files from the data directory."""
+    return send_from_directory('data', filename)
+
+def detect_bank(text):
+    """Detects the bank by searching for identifiers in the text."""
+    with open('data/templates.json', 'r') as f:
+        templates = json.load(f)
+    
+    for bank_key, template in templates.items():
+        if 'identifiers' in template:
+            for identifier in template['identifiers']:
+                if identifier.lower() in text.lower():
+                    return bank_key
+    return None
 
 @app.route('/parse', methods=['POST'])
 def parse_endpoint():
@@ -35,7 +47,20 @@ def parse_endpoint():
 
     try:
         full_text = parse_pdf(tmp_path)
-        return jsonify({'ExtractedPdfText': full_text})
+        detected_bank_key = detect_bank(full_text)
+        
+        # Load templates to get the detected bank's template
+        detected_bank_template = None
+        if detected_bank_key:
+            with open('data/templates.json', 'r') as f:
+                templates = json.load(f)
+                detected_bank_template = templates.get(detected_bank_key)
+
+        return jsonify({
+            'ExtractedPdfText': full_text,
+            'detectedBankKey': detected_bank_key,
+            'detectedBankTemplate': detected_bank_template
+        })
        
     finally:
         try:
@@ -50,10 +75,25 @@ def save_templates():
         if not new_configs:
             return jsonify({"error": "No data received"}), 400
 
-        with open('templates.json', 'w') as f:
+        with open('data/templates.json', 'w') as f:
             json.dump(new_configs, f, indent=4)
             
         return jsonify({"message": "Templates saved successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/save_prompts', methods=['POST'])
+def save_prompts():
+    try:
+        new_prompts = request.get_json()
+        if not new_prompts:
+            return jsonify({"error": "No data received"}), 400
+
+        with open('data/prompts.json', 'w') as f:
+            json.dump(new_prompts, f, indent=4)
+            
+        return jsonify({"message": "Prompts saved successfully"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -61,7 +61,7 @@
                     <input type="file" id="pdf-upload" accept=".pdf" class="hidden" onchange="app.handleFileUpload(this)">
                     
                     <div id="upload-prompt" class="w-full flex flex-col items-center justify-center">
-                        <i class="fa-solid fa-file-pdf text-4xl text-slate-300 mb-3 group-hover:text-brand-ai transition-colors"></i>
+                        <i class="fa-solid fa-file-pdf text-4xl text-slate-400 mb-3 group-hover:text-brand-ai transition-colors"></i>
                         <p class="text-sm font-bold text-slate-600">Drop Bank Statement PDF</p>
                         <p class="text-xs text-slate-400 mt-1">Lili, F&M, or Custom</p>
                         <button onclick="document.getElementById('pdf-upload').click()" class="mt-4 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai">Browse Files</button>
@@ -77,10 +77,10 @@
                     </div>
                 </div>
 
-                <div class="flex gap-2 justify-center">
+               <!-- <div class="flex gap-2 justify-center">
                     <button onclick="app.loadSample('lili')" class="text-[10px] px-2 py-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 hover:bg-indigo-100">Load Lili Sample</button>
                     <button onclick="app.loadSample('fm')" class="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 hover:bg-emerald-100">Load F&M Sample</button>
-                </div>
+                </div> -->
 
                 <div class="flex-1 flex flex-col">
                     <label class="text-xs font-bold text-slate-400 uppercase mb-2 flex justify-between">
@@ -124,7 +124,9 @@
                         <div class="text-left flex-1">
                             <span class="block">Bank Name & Account #</span>
                         </div>
-                        <i class="fa-solid fa-wand-magic-sparkles text-slate-300"></i>
+                        <div class="flex items-center gap-3">
+                            <i onclick="event.stopPropagation(); ui.showPromptModal('identity')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                           
+                        </div>
                     </button>
 
                     <!-- 2. Balances -->
@@ -133,7 +135,9 @@
                         <div class="text-left flex-1">
                             <span class="block">Opening Balance & Dates</span>
                         </div>
-                        <i class="fa-solid fa-wand-magic-sparkles text-slate-300"></i>
+                        <div class="flex items-center gap-3">
+                            <i onclick="event.stopPropagation(); ui.showPromptModal('balances')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
+                        </div>
                     </button>
 
                     <!-- 3. Transactions -->
@@ -142,12 +146,17 @@
                         <div class="text-left flex-1">
                             <span class="block">Transaction Table Regex</span>
                         </div>
-                        <i class="fa-solid fa-wand-magic-sparkles text-slate-300"></i>
+                        <div class="flex items-center gap-3">
+                            <i onclick="event.stopPropagation(); ui.showPromptModal('transactions')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
+                        </div>
                     </button>
 
                     <button onclick="ai.generatePart('full')" class="w-full py-2 bg-white border-2 border-dashed border-slate-300 rounded-lg text-xs font-bold text-slate-500 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group justify-center gap-2">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i>
-                        <span>Auto-Generate Full Config (One-Shot)</span>
+                        <div class="flex-1 text-center">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span>Auto-Generate Full Config (One-Shot)</span>
+                        </div>
+                        <i onclick="event.stopPropagation(); ui.showPromptModal('full')" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>
                     </button>
 
                     <!-- Custom Prompt -->
@@ -308,6 +317,24 @@
         </div>
     </div>
 
+    <!-- AI Prompt Modal -->
+    <div id="ai-prompt-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center shrink-0">
+                <h3 id="ai-prompt-modal-title" class="font-bold text-lg">Edit AI Prompt</h3>
+                <button onclick="ui.hidePromptModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 p-4 flex flex-col gap-2">
+                <textarea id="ai-prompt-editor" class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600" spellcheck="false"></textarea>
+                <button onclick="ui.savePrompt()" class="bg-brand-ai hover:bg-violet-700 text-white py-2 rounded-lg text-sm font-bold transition-all">
+                    Save and Close
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- CORE LOGIC -->
     <script>
         // --- 1. CONFIGURATION REGISTRY (End-user modifiable) ---
@@ -437,6 +464,12 @@
             currentFile: null,
             currentPdfUrl: null,
             aiPlatform: 'gemini',
+            aiPrompts: {
+                identity: "",
+                balances: "",
+                transactions: "",
+                full: ""
+            },
             apiKey: '',
 
             saveAiSettings: () => {
@@ -510,23 +543,6 @@
                 window.location.reload();
             },
 
-            detectBank: (text) => {
-                for (const key in DefaultConfigs) {
-                    const config = DefaultConfigs[key];
-                    if (config.identifiers && Array.isArray(config.identifiers)) {
-                        for (const identifier of config.identifiers) {
-                            // Using a case-insensitive check
-                            if (text.toLowerCase().includes(identifier.toLowerCase())) {
-                                console.log(`Detected bank: ${key}`);
-                                return key; // Return the key of the matching config
-                            }
-                        }
-                    }
-                }
-                console.log("No bank detected.");
-                return null; // No match found
-            },
-
             handleFileUpload: async (input) => {
                 const file = input.files[0];
                 if (!file) {
@@ -574,17 +590,18 @@
                         statusEl.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> Done';
                         
                         const extractedText = data.ExtractedPdfText || "";
-                        
+                        const detectedBankKey = data.detectedBankKey;
+                        const detectedBankTemplate = data.detectedBankTemplate;
+
                         // Update UI
                         resultEl.value = extractedText; 
                         
                         // Update internal app state as requested
                         app.currentText = extractedText; 
                         console.log('Extracted Text :', extractedText); 
-                        const detectedBankKey = app.detectBank(app.currentText);
-                        console.log('Detected Bank Key:', detectedBankKey);
-                        if (detectedBankKey) {
-                            app.currentConfig = DefaultConfigs[detectedBankKey];
+                        
+                        if (detectedBankKey && detectedBankTemplate) {
+                            app.currentConfig = detectedBankTemplate;
                             document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
                         } else {
                             app.currentConfig = null;
@@ -809,67 +826,14 @@
                 try { currentConfig = JSON.parse(document.getElementById('config-editor').value); } catch(e){}
 
                 let prompt = "";
-               
-                // STEP 1: IDENTITY
-                if (part === 'identity') {
-                    prompt = `Analyze this text for Bank Name and Account Number only.
-                    Text: ${raw.substring(0, 1000)}...
-                    Requirements:
-                    1. Find 'name': The bank name.
-                    2. Create regex for 'accountNumber': Look for "Account Number", "Account No". capture digits.
-                    3. IMPORTANT: Use Standard JavaScript Regex strings. Do NOT use inline modifiers like '(?i)'. Use character classes like [Aa]ccount instead.
-                   
-                    Response Format JSON: { "name": "...", "fields": { "accountNumber": "regex_here" } }`;
-                }
-               
-                // STEP 2: BALANCES
-                else if (part === 'balances') {
-                    prompt = `Analyze text for Opening/Closing Balances and Statement Period.
-                    Text: ${raw.substring(0, 2000)}...
-                    Requirements:
-                    1. Create regex for 'startBalance' (Beginning/Previous/Start Balance).
-                    2. Create regex for 'endBalance' (Ending/Current/Closing Balance).
-                    3. Create regex for 'period' (Statement Period/Dates).
-                    4. IMPORTANT: Use Standard JavaScript Regex strings. Do NOT use inline modifiers like '(?i)'. Use character classes like [Bb]alance instead.
-                   
-                    Response Format JSON: { "fields": { "startBalance": "regex_here", "endBalance": "regex_here", "period": "regex_here" } }`;
-                }
-               
-                // STEP 3: TRANSACTIONS
-                else if (part === 'transactions') {
-                    prompt = `Analyze the transaction table layout.
-                    Text: ${raw.substring(0, 3000)}...
-                    Requirements:
-                    1. Determine 'strategy': "row_reconstructor" (if CSV-like with broken lines) OR "regex_rows" (clean lines).
-                    2. Create 'transactionRegex' to capture groups: (1:Date, 2:Desc, 3:Amount).
-                    3. IMPORTANT: Use Standard JavaScript Regex strings. Do NOT use inline modifiers like '(?i)'.
-                   
-                    Response Format JSON: { "strategy": "...", "transactionRegex": "..." }`;
-                }
-                // STEP 4: FULL CONFIG (ONE-SHOT)
-                else if (part === 'full') {
-                    prompt = `Analyze the following bank statement text and generate a complete JSON configuration to parse it.
-                    Text: ${raw.substring(0, 4000)}...
-                    
-                    Requirements:
-                    1.  **name**: The bank's name.
-                    2.  **strategy**: "row_reconstructor" for complex, multi-line transaction rows (like Lili bank), or "regex_rows" for clean, single-line transaction rows (like F&M bank).
-                    3.  **identifiers**: An array of unique keywords to identify this bank.
-                    4.  **fields**: An object with JavaScript regex strings for "accountNumber", "period", "startBalance", and "endBalance".
-                    5.  **transactionRegex**: A JavaScript regex string with capture groups for (1:Date, 2:Description, 3:Amount). This is mainly for the "regex_rows" strategy.
+                const snippetLengths = { identity: 1000, balances: 2000, transactions: 3000, full: 4000 };
+                const snippet = raw.substring(0, snippetLengths[part] || 4000);
 
-                    IMPORTANT: The entire output must be a single, valid JSON object. Use standard JavaScript regex strings without inline modifiers.
-
-                    Example Response Format:
-                    { "name": "...", "strategy": "...", "identifiers": ["..."], "fields": { "accountNumber": "...", "period": "...", "startBalance": "...", "endBalance": "..." }, "transactionRegex": "..." }`;
-                }
-                // STEP 5: CUSTOM PROMPT
-                else if (part === 'custom') {
-                    const customPrompt = document.getElementById('custom-prompt-input').value;
-                    if (!customPrompt) return alert("Custom prompt cannot be empty.");
-                    
-                    // The prompt is the user's input, plus the raw text context.
-                    prompt = `Given the following text:\n\n${raw.substring(0, 4000)}...\n\n---\n\n${customPrompt}`;
+                if (app.aiPrompts[part]) {
+                    prompt = app.aiPrompts[part].replace('{TEXT_SNIPPET}', snippet);
+                } else {
+                    status.classList.add('hidden');
+                    return alert(`Unknown AI generation part: ${part}`);
                 }
 
                 const response = await ai.call(prompt);
@@ -947,19 +911,93 @@
                 
                 document.getElementById(`view-${tab}`).classList.remove('hidden');
                 document.getElementById(`tab-${tab}`).classList.add('text-brand-ai', 'border-b-2', 'border-brand-ai');
+            },
+            currentEditingPrompt: null,
+            showPromptModal: (part) => {
+                ui.currentEditingPrompt = part;
+                
+                // Load the specific prompt from the JSON file on demand
+                fetch('data/prompts.json')
+                    .then(response => response.json())
+                    .then(prompts => {
+                        if (prompts && prompts[part]) {
+                            app.aiPrompts = prompts; // Update the entire set of prompts
+                            document.getElementById('ai-prompt-editor').value = prompts[part];
+                        } else {
+                            // Fallback to whatever is in memory if the file is incomplete
+                            document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
+                        }
+                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${part.charAt(0).toUpperCase() + part.slice(1)}`;
+                        document.getElementById('ai-prompt-modal').classList.remove('hidden');
+                    })
+                    .catch(error => {
+                        console.error('Error loading prompts.json for modal:', error);
+                        // Fallback to in-memory prompt on error
+                        document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
+                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${part.charAt(0).toUpperCase() + part.slice(1)}`;
+                        document.getElementById('ai-prompt-modal').classList.remove('hidden');
+                        alert('Could not load latest prompts from server. Displaying cached version.');
+                    });
+            },
+            hidePromptModal: () => {
+                document.getElementById('ai-prompt-modal').classList.add('hidden');
+                ui.currentEditingPrompt = null;
+            },
+            savePrompt: async () => {
+                if (ui.currentEditingPrompt) {
+                    const newPrompt = document.getElementById('ai-prompt-editor').value;
+                    app.aiPrompts[ui.currentEditingPrompt] = newPrompt;
+                    await ui.savePromptsToFile();
+                    ui.hidePromptModal();
+                }
+            },
+            savePromptsToFile: async () => {
+                try {
+                    const url = 'http://127.0.0.1:5000/save_prompts'; 
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(app.aiPrompts, null, 2)
+                    });
+
+                    if (res.ok) {
+                        alert(`AI Prompts saved successfully!`);
+                    } else {
+                        const error = await res.json();
+                        alert(`Error saving prompts: ${error.error || 'Unknown error'}`);
+                    }
+                } catch (e) {
+                    alert("Failed to save prompts to the server.\n" + e.message);
+                }
             }
         };
 
         // Init
-        fetch('templates.json')
+        fetch('data/templates.json')
             .then(response => response.json())
             .then(data => {
-                DefaultConfigs = data;
-                app.init(); // Initialize the app after loading configs
+                DefaultConfigs = data; // Set the loaded parser configs
             })
             .catch(error => {
                 console.error('Error loading templates.json:', error);
                 alert('Could not load templates.json. Please check the file and console for errors.');
+            })
+            .finally(() => {
+                // After templates are attempted, fetch prompts
+                fetch('data/prompts.json')
+                    .then(response => response.json())
+                    .then(loadedPrompts => {
+                        // Merge loaded prompts over the defaults to ensure all keys exist
+                        Object.assign(app.aiPrompts, loadedPrompts);
+                        console.log("Custom AI prompts loaded.");
+                    })
+                    .catch(error => {
+                        console.warn('prompts.json not found or invalid, using default prompts.', error);
+                    })
+                    .finally(() => {
+                        // Initialize the app after all configs are loaded or have failed
+                        app.init();
+                    });
             });
 
     </script>

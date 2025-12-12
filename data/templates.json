@@ -1,0 +1,86 @@
+{
+    "central_bank__trust_co": {
+        "name": "Central Bank & Trust Co.",
+        "strategy": "row_reconstructor",
+        "identifiers": [
+            "CentralBank&TrustCo.",
+            "Lexington,KY 40588-1360",
+            "BUSINESS CHECKING",
+            "PARKERINC FORACCOUNTNUMBER"
+        ],
+        "fields": {
+            "accountNumber": "(?:Account Number:|PRIMARY ACCOUNT:)\\s*(\\d{8})",
+            "period": "FORSTATEMENTPERIOD:\\s*(\\d{2}/\\d{2}/\\d{2}TO\\d{2}/\\d{2}/\\d{2})",
+            "startBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n\\s*(\\d{1,3}(?:,\\d{3})*\\.\\d{2})",
+            "endBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n(?:[^\\n]+)(\\d{1,3}(?:,\\d{3})*\\.\\d{2})"
+        },
+        "transactionRegex": "(\\d{2}/\\d{2})\\s+(\\d{1,3}(?:,\\d{3})*\\.\\d{2})(?:\\s+)?([^\\n]+)"
+    },
+    "lili_bank_style_statement": {
+        "fields": {
+            "accountNumber": "Account Number Statement Period\\s*([\\d]{12})",
+            "endBalance": "Ending balance on [\\w\\s,-]+ (\\$[\\d,]+\\.\\d{2})",
+            "period": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance": "Beginning balance on [\\w\\s,-]+ (\\$[\\d,]+\\.\\d{2})"
+        },
+        "identifiers": [
+            "Caulfield home Contracting Inc.",
+            "Lili Rewards",
+            "Checking Account Activity"
+        ],
+        "name": "Lili Bank Style Statement",
+        "strategy": "regex_rows",
+        "transactionRegex": "(\\d{2}/\\d{2}/\\d{4})\\s+[\\d]+\\s+(.+?)\\s+(\\$-?[\\d,]+\\.\\d{2})\\s+\\$[\\d,]+\\.\\d{2}"
+    },
+    "digital_federal_credit_union": {
+        "name": "Digital Federal Credit Union",
+        "strategy": "regex_rows",
+        "identifiers": [
+            "Digital Federal Credit Union",
+            "DCU",
+            "Marlborough, MA 01752",
+            "6670370"
+        ],
+        "fields": {
+            "accountNumber": "(?:PRIMARY SAVINGS|FREE BUSINESS CHECKING)\\s+ACCT#\\s*(\\d+)",
+            "period": "STATEMENT PERIOD\\s*(\\d{2}-\\d{2}-\\d{2}\\s+to\\s+\\d{2}-\\d{2}-\\d{2})",
+            "startBalance": "PREVIOUS BALANCE\\s*([0-9,]+\\.\\d{2})",
+            "endBalance": "NEW BALANCE\\s*([0-9,]+\\.\\d{2})"
+        },
+        "transactionRegex": "^(\\w{3}\\d{2})\\s+(.*?)\\s+(-?[\\d,]+\\.\\d{2})\\s+[\\d,]+\\.\\d{2}$"
+    },
+    "farmers__merchants_bank": {
+        "name": "Farmers & Merchants Bank",
+        "strategy": "regex_rows",
+        "identifiers": [
+            "FARMERS&MERCHANTSBANK",
+            "F&M Bank",
+            "NMLS#537388",
+            "Business Checking Plus Summary"
+        ],
+        "fields": {
+            "accountNumber": "AccountNumber\\s+(\\d+)",
+            "period": "StatementDates\\s+([\\d/]+thru[\\d/]+)",
+            "startBalance": "BeginningBalance\\s+([\\d,]+\\.\\d{2})",
+            "endBalance": "EndingBalance\\s+([\\d,]+\\.\\d{2})"
+        },
+        "transactionRegex": "^(\\d{2}/\\d{2})\\s+(.+?)\\s+([\\d,]+\\.\\d{2})$"
+    },
+    "farmers__merchants_bank_fm": {
+        "name": "Farmers & Merchants Bank (F&M)",
+        "strategy": "regex_rows",
+        "identifiers": [
+            "FARMERS&MERCHANTSBANK",
+            "VIEWPOINTAMBULANCEINC",
+            "NMLS#537388",
+            "Business Checking Summary"
+        ],
+        "fields": {
+            "accountNumber": "AccountNumber\\s+(\\d{8,})",
+            "period": "StatementDates\\s+([\\d/]+\\s*thru\\s*[\\d/]+)",
+            "startBalance": "BeginningBalance\\s+([0-9,]+\\.\\d{2})",
+            "endBalance": "EndingBalance\\s+([0-9,]+\\.\\d{2})"
+        },
+        "transactionRegex": "(\\d{1,2}\\/\\d{1,2})\\s+(.+?)\\s+(-?[0-9,]+\\.\\d{2})"
+    }
+}
