@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    
+
     <script>
         tailwind.config = {
             theme: {
@@ -24,273 +25,320 @@
         }
     </script>
     <style>
-        .drop-zone { border: 2px dashed #cbd5e1; transition: all 0.3s ease; }
-        .drop-zone.dragover { border-color: #8b5cf6; background-color: #f5f3ff; }
-        .scroller::-webkit-scrollbar { width: 8px; height: 8px; }
-        .scroller::-webkit-scrollbar-track { background: #f1f5f9; }
-        .scroller::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .code-editor { font-family: 'Fira Code', monospace; line-height: 1.5; }
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.dragover {
+            border-color: #8b5cf6;
+            background-color: #f5f3ff;
+        }
+
+        .scroller::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .scroller::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .scroller::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .code-editor {
+            font-family: 'Fira Code', monospace;
+            line-height: 1.5;
+        }
+
+        .resizer {
+            width: 6px;
+            cursor: col-resize;
+            background-color: transparent;
+            transition: background-color 0.2s;
+            z-index: 50;
+            margin: 0 -3px;
+        }
+
+        .resizer:hover,
+        .resizer.active {
+            background-color: #8b5cf6;
+        }
+
+        .resizing {
+            cursor: col-resize;
+            user-select: none;
+        }
+
+        .resizing * {
+            pointer-events: none !important;
+        }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col">    
+
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col">
     <!-- Navbar -->
     <nav class="bg-white border-b border-slate-200 shrink-0 z-40">
         <div class="max-w-7xl mx-auto px-4">
-            <div class="flex justify-between h-16">            
-                <div class="flex items-center gap-3">                    
-                    <button onclick="app.reset()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-rotate-right"></i></button>
+            <div class="flex justify-between h-16">
+                <!-- Title on Top Left -->
+                <div class="flex items-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest text-[10px]">Bank Statement
+                        Parser</span>
+                </div>
+                <!-- Refresh on Top Right -->
+                <div class="flex items-center">
+                    <button onclick="app.reset()" class="text-slate-400 hover:text-slate-600 transition-colors"
+                        title="Reload Application">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
                 </div>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-hidden flex flex-col lg:flex-row">
-        
-        <!-- LEFT PANEL: Ingestion & Config -->
-        <div class="w-full lg:w-1/3 bg-white border-r border-slate-200 flex flex-col h-full shadow-xl z-30">
+    <main id="main-layout" class="flex-1 overflow-hidden flex h-screen">
+
+        <!-- LEFT PANEL: Ingestion & Config (25%) -->
+        <div id="panel-left" class="bg-white border-r border-slate-200 flex flex-col h-full shadow-xl z-30 shrink-0"
+            style="width: 25%; min-width: 200px;">
             <!-- Tabs -->
             <div class="flex border-b border-slate-200">
-                <button onclick="ui.setTab('upload')" id="tab-upload" class="flex-1 py-3 text-sm font-bold text-brand-ai border-b-2 border-brand-ai">Input</button>
-                <button onclick="ui.setTab('config')" id="tab-config" class="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-700">⚙️ Parser Config</button>
+                <button onclick="ui.setTab('upload')" id="tab-upload"
+                    class="flex-1 py-3 text-sm font-bold text-brand-ai border-b-2 border-brand-ai">Input</button>
+                <button onclick="ui.setTab('config')" id="tab-config"
+                    class="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-slate-700">Config</button>
             </div>
 
             <!-- Tab: Upload -->
             <div id="view-upload" class="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
-                <div id="drop-zone" class="drop-zone rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer bg-slate-50 hover:bg-slate-100 group transition-all">
-                    <input type="file" id="pdf-upload" accept=".pdf" class="hidden" onchange="app.handleFileUpload(this)">
-                    
+                <div id="drop-zone"
+                    class="drop-zone rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer bg-slate-50 hover:bg-slate-100 group transition-all">
+                    <input type="file" id="pdf-upload" accept=".pdf" class="hidden"
+                        onchange="app.handleFileUpload(this)">
+
                     <div id="upload-prompt" class="w-full flex flex-col items-center justify-center">
-                        <i class="fa-solid fa-file-pdf text-4xl text-slate-400 mb-3 group-hover:text-brand-ai transition-colors"></i>
-                        <p class="text-sm font-bold text-slate-600">Drop Bank Statement PDF</p>
-                        <p class="text-xs text-slate-400 mt-1">Lili, F&M, or Custom</p>
-                        <button onclick="document.getElementById('pdf-upload').click()" class="mt-4 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai">Browse Files</button>
+                        <i
+                            class="fa-solid fa-file-pdf text-4xl text-slate-400 mb-3 group-hover:text-brand-ai transition-colors"></i>
+                        <p class="text-sm font-bold text-slate-600">Drop PDF</p>
+                        <button onclick="document.getElementById('pdf-upload').click()"
+                            class="mt-4 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai">Browse</button>
                     </div>
 
                     <div id="file-info" class="hidden w-full">
                         <i class="fa-solid fa-check-circle text-4xl text-emerald-500 mb-3"></i>
-                        <p id="file-name" class="text-sm font-bold text-slate-600"></p>
+                        <p id="file-name" class="text-sm font-bold text-slate-600 break-words"></p>
                         <div class="mt-4 flex gap-2 justify-center">
-                            <button onclick="app.openPreview()" class="px-4 py-2 bg-brand-ai text-white rounded-lg text-xs font-bold shadow-sm hover:bg-violet-700">Preview</button>
-                            <button onclick="app.clearFile()" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold shadow-sm hover:border-red-500 hover:text-red-500">Clear</button>
+                            <button onclick="app.clearFile()"
+                                class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold shadow-sm hover:border-red-500 hover:text-red-500">Clear</button>
                         </div>
                     </div>
                 </div>
 
-               <!-- <div class="flex gap-2 justify-center">
-                    <button onclick="app.loadSample('lili')" class="text-[10px] px-2 py-1 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 hover:bg-indigo-100">Load Lili Sample</button>
-                    <button onclick="app.loadSample('fm')" class="text-[10px] px-2 py-1 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 hover:bg-emerald-100">Load F&M Sample</button>
-                </div> -->
-
                 <div class="flex-1 flex flex-col">
                     <label class="text-xs font-bold text-slate-400 uppercase mb-2 flex justify-between">
-                        <span>Extracted Text Layer</span>
-                        <span id="text-status" class="text-orange-500 hidden"><i class="fa-solid fa-spinner fa-spin"></i> Processing...</span>
+                        <span>Extracted Text</span>
+                        <span id="text-status" class="text-orange-500 hidden"><i
+                                class="fa-solid fa-spinner fa-spin"></i> Processing...</span>
                     </label>
-                    <textarea id="raw-input" class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600" placeholder="Raw text will appear here..."></textarea>
+                    <textarea id="raw-input"
+                        class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600"
+                        placeholder="Raw text..."></textarea>
                 </div>
-                
-                <button onclick="app.runParser()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg text-sm font-bold shadow-lg transition-all flex justify-center items-center gap-2">
+
+                <button onclick="app.runParser()"
+                    class="w-full bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg text-sm font-bold shadow-lg transition-all flex justify-center items-center gap-2">
                     <i class="fa-solid fa-gears"></i> Parse Data
                 </button>
             </div>
 
             <!-- Tab: Config -->
-            <div id="view-config" class="hidden flex-1 flex flex-col p-4 gap-4 h-full">
+            <div id="view-config" class="hidden flex-1 flex flex-col p-4 gap-4 h-full overflow-y-auto">
                 <!-- AI Provider Config -->
                 <div class="border-b border-slate-200 pb-4">
-                    <label class="text-xs font-bold text-slate-500 uppercase">AI Provider</label>
-                    <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <label class="text-xs font-bold text-slate-500 uppercase">AI Settings</label>
+                    <div class="mt-2 flex flex-col gap-2">
                         <div>
-                            <label for="ai-platform" class="text-xs font-medium text-slate-600">Platform</label>
-                            <select id="ai-platform" onchange="app.saveAiSettings()" class="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-ai outline-none">
+                            <label class="text-xs font-medium text-slate-600">Platform</label>
+                            <select id="ai-platform" onchange="app.updateModelOptions(); app.saveAiSettings()"
+                                class="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none">
                                 <option value="gemini">Gemini</option>
-                                <option value="openai">OpenAI (ChatGPT)</option>
+                                <option value="openai">OpenAI</option>
                             </select>
                         </div>
                         <div>
-                            <label for="api-key" class="text-xs font-medium text-slate-600">API Key</label>
-                            <input type="password" id="api-key" onkeyup="app.saveAiSettings()" class="w-full mt-1 p-2 font-mono bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-ai outline-none" placeholder="Enter your API key...">
+                            <label class="text-xs font-medium text-slate-600">Model</label>
+                            <select id="ai-model" onchange="app.saveAiSettings()"
+                                class="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium text-slate-600">API Key</label>
+                            <input type="password" id="api-key" onkeyup="app.saveAiSettings()"
+                                class="w-full mt-1 p-2 font-mono bg-white border border-slate-200 rounded-lg text-sm outline-none"
+                                placeholder="Key...">
                         </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 gap-2 mb-2">
-                    <label class="text-xs font-bold text-slate-500 uppercase">Step-by-Step AI Generator</label>
-                   
-                    <!-- 1. Identity -->
-                    <button onclick="ai.generatePart('identity')" id="btn-id" class="w-full py-2 bg-white border border-slate-200 rounded shadow-sm text-xs font-bold text-slate-700 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group">
-                        <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3 group-hover:bg-brand-ai group-hover:text-white transition-colors">1</span>
-                        <div class="text-left flex-1">
-                            <span class="block">Bank Name & Account #</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <i onclick="event.stopPropagation(); ui.showPromptModal('identity', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                           
-                        </div>
-                    </button>
-
-                    <!-- 2. Balances -->
-                    <button onclick="ai.generatePart('balances')" id="btn-bal" class="w-full py-2 bg-white border border-slate-200 rounded shadow-sm text-xs font-bold text-slate-700 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group">
-                        <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3 group-hover:bg-brand-ai group-hover:text-white transition-colors">2</span>
-                        <div class="text-left flex-1">
-                            <span class="block">Opening Balance & Dates</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <i onclick="event.stopPropagation(); ui.showPromptModal('balances', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
-                        </div>
-                    </button>
-
-                    <!-- 3. Transactions -->
-                    <button onclick="ai.generatePart('transactions')" id="btn-tx" class="w-full py-2 bg-white border border-slate-200 rounded shadow-sm text-xs font-bold text-slate-700 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group">
-                        <span class="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mr-3 group-hover:bg-brand-ai group-hover:text-white transition-colors">3</span>
-                        <div class="text-left flex-1">
-                            <span class="block">Transaction Table Regex</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <i onclick="event.stopPropagation(); ui.showPromptModal('transactions', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>                            
-                        </div>
-                    </button>
-
-                    <button onclick="ai.generatePart('full')" class="w-full py-2 bg-white border-2 border-dashed border-slate-300 rounded-lg text-xs font-bold text-slate-500 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group justify-center gap-2">
-                        <div class="flex-1 text-center">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i>
-                            <span>Auto-Generate Full Config (One-Shot)</span>
-                        </div>
-                        <i onclick="event.stopPropagation(); ui.showPromptModal('full', this)" class="fa-solid fa-pencil text-slate-400 hover:text-brand-accent p-2 cursor-pointer"></i>
-                    </button>
-
-                    <!-- Custom Prompt -->
-                   <!-- <div class="mt-2 border-t pt-3">
-                         <label class="text-xs font-bold text-slate-500 uppercase">Custom AI Prompt</label>
-                        <textarea id="custom-prompt-input" class="w-full p-2 mt-1 text-xs font-mono bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-y" rows="3" placeholder="e.g., Create a regex for the customer name located between 'Prepared for:' and 'Account Number'. Respond in JSON: { &quot;fields&quot;: { &quot;customerName&quot;: &quot;...&quot; } }"></textarea>
-                        <button onclick="ai.generatePart('custom')" class="w-full mt-1 py-2 bg-slate-100 border border-slate-200 rounded text-xs font-bold text-slate-600 hover:border-brand-ai hover:text-brand-ai flex items-center px-3 transition-all group justify-center gap-2">
-                            <i class="fa-solid fa-paper-plane"></i>
-                            <span>Send Custom Prompt</span>
-                        </button>
-                    </div> -->
-
-                </div>
-                <div class="flex justify-between items-center">
-                    <label class="text-xs font-bold text-slate-500 uppercase">Active Configuration (JSON)</label>
-                    <span id="ai-status" class="text-xs text-brand-ai font-bold animate-pulse hidden">AI Generating...</span>
+                    <label class="text-xs font-bold text-slate-500 uppercase">Generators</label>
+                    <button onclick="ai.generatePart('identity')"
+                        class="w-full py-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-700 hover:text-brand-ai flex items-center px-2">1.
+                        Bank ID <i onclick="event.stopPropagation(); ui.showPromptModal('identity', this)"
+                            class="fa-solid fa-pencil ml-auto text-slate-400 hover:text-brand-accent"></i></button>
+                    <button onclick="ai.generatePart('balances')"
+                        class="w-full py-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-700 hover:text-brand-ai flex items-center px-2">2.
+                        Balances <i onclick="event.stopPropagation(); ui.showPromptModal('balances', this)"
+                            class="fa-solid fa-pencil ml-auto text-slate-400 hover:text-brand-accent"></i></button>
+                    <button onclick="ai.generatePart('transactions')"
+                        class="w-full py-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-700 hover:text-brand-ai flex items-center px-2">3.
+                        Transactions <i onclick="event.stopPropagation(); ui.showPromptModal('transactions', this)"
+                            class="fa-solid fa-pencil ml-auto text-slate-400 hover:text-brand-accent"></i></button>
+                    <button onclick="ai.generatePart('full')"
+                        class="w-full py-2 bg-white border border-slate-300 border-dashed rounded text-xs font-bold text-slate-500 hover:text-brand-ai flex items-center px-2">Full
+                        Auto-Gen <i onclick="event.stopPropagation(); ui.showPromptModal('full', this)"
+                            class="fa-solid fa-pencil ml-auto text-slate-400 hover:text-brand-accent"></i></button>
                 </div>
 
-                <textarea id="config-editor" class="flex-1 w-full p-3 text-xs font-mono bg-slate-900 text-emerald-400 border border-slate-700 rounded-lg outline-none resize-none code-editor" spellcheck="false"></textarea>
-                
-                <button onclick="app.saveConfigToFile()" class="w-full bg-brand-ai hover:bg-violet-700 text-white py-2 rounded-lg text-sm font-bold transition-all mb-2">
-                    Save to Templates
-                </button>
-                <button onclick="app.saveConfig()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 rounded-lg text-sm font-bold transition-all">
-                    Apply Configuration
-                </button>
+                <textarea id="config-editor"
+                    class="flex-1 w-full p-3 text-xs font-mono bg-slate-900 text-emerald-400 border border-slate-700 rounded-lg outline-none resize-none code-editor"
+                    spellcheck="false"></textarea>
+
+                <div class="flex gap-2">
+                    <button onclick="app.saveConfigToFile()"
+                        class="flex-1 bg-brand-ai text-white py-2 rounded text-xs font-bold">Save</button>
+                    <button onclick="app.saveConfig()"
+                        class="flex-1 bg-slate-200 text-slate-700 py-2 rounded text-xs font-bold">Apply</button>
+                </div>
             </div>
         </div>
 
-        <!-- RIGHT PANEL: Dashboard -->
-        <div class="flex-1 bg-slate-50 overflow-y-auto scroller p-6 lg:p-10 relative">
-            
+        <div class="resizer" id="resizer1"></div>
+
+        <!-- CENTER PANEL: PDF Preview (33%) -->
+        <div id="panel-center" class="bg-slate-200 border-r border-slate-200 flex flex-col h-full relative shrink-0"
+            style="width: 33%; min-width: 200px;">
+            <div class="bg-white border-b border-slate-200 px-4 py-2 flex justify-between items-center h-10 shrink-0">
+                <span class="text-xs font-bold text-slate-500 uppercase">PDF Preview</span>
+            </div>
+            <div class="flex-1 relative bg-slate-300 overflow-hidden flex items-center justify-center">
+                <div id="pdf-placeholder" class="text-slate-400 text-center">
+                    <i class="fa-solid fa-file-pdf text-4xl mb-2"></i>
+                    <p class="text-sm font-bold">No PDF Loaded</p>
+                </div>
+                <embed id="main-pdf-embed" class="hidden w-full h-full" src="" type="application/pdf">
+            </div>
+        </div>
+
+        <div class="resizer" id="resizer2"></div>
+
+        <!-- RIGHT PANEL: Dashboard (42%) -->
+        <div id="panel-right" class="flex-1 bg-slate-50 overflow-y-auto scroller p-4 lg:p-6 relative">
+            <!-- Dashboard Header & Toggle -->
+            <div id="dashboard-header"
+                class="hidden sticky top-0 bg-slate-50 z-20 pb-4 flex justify-between items-center shrink-0">
+                <h3 class="text-xs font-bold text-slate-500 uppercase">Analysis Results</h3>
+                <button id="toggle-json-btn" onclick="ui.toggleRightView()"
+                    class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai transition-all">
+                    <i class="fa-solid fa-code mr-1"></i> View JSON
+                </button>
+            </div>
+
             <!-- Welcome State -->
             <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                <i class="fa-regular fa-file-lines text-6xl mb-4 opacity-20"></i>
-                <p class="text-lg font-medium">Ready to Analyze</p>
-                <p class="text-sm">Upload a statement to begin</p>
+                <i class="fa-regular fa-chart-bar text-6xl mb-4 opacity-20"></i>
+                <p class="text-lg font-medium">No Data</p>
+            </div>
+
+            <!-- JSON View Container -->
+            <div id="json-view" class="hidden space-y-4 max-w-5xl mx-auto h-[calc(100%-4rem)]">
+                <pre id="json-output"
+                    class="p-4 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl border border-slate-800 h-full overflow-auto scroller shadow-inner"></pre>
             </div>
 
             <!-- Dashboard Content -->
-            <div id="dashboard" class="hidden space-y-8 max-w-5xl mx-auto">
-                
+            <div id="dashboard" class="hidden space-y-6 max-w-5xl mx-auto">
+
                 <!-- 1. Identity Card -->
-                <div id="bank-header" class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start gap-6 border-l-4 border-l-brand-ai">
-                    <div class="flex gap-4">
-                        <div class="w-14 h-14 bg-slate-100 rounded-lg flex items-center justify-center text-2xl text-slate-400">
-                            <i class="fa-solid fa-building-columns"></i>
-                        </div>
+                <div id="bank-header"
+                    class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 border-l-4 border-l-brand-ai">
+                    <div class="flex justify-between items-start">
                         <div>
-                            <h2 id="disp-bank-name" class="text-2xl font-bold text-slate-800">Bank Name</h2>
-                            <p class="text-sm text-slate-500 font-mono mt-1">Acct: <span id="disp-acct-num">--</span></p>
-                            <p class="text-xs text-slate-400 mt-1"><i class="fa-regular fa-calendar mr-1"></i> <span id="disp-period">--</span></p>
+                            <h2 id="disp-bank-name" class="text-lg font-bold text-slate-800">Bank Name</h2>
+                            <p class="text-xs text-slate-500 font-mono mt-1">Acct: <span id="disp-acct-num">--</span>
+                            </p>
+                            <p class="text-xs text-slate-400 mt-1"><span id="disp-period">--</span></p>
                         </div>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Customer</p>
-                        <p id="disp-cust-name" class="font-bold text-slate-700 text-lg">--</p>
-                        <p id="disp-cust-addr" class="text-sm text-slate-500 max-w-xs ml-auto">--</p>
+                        <div class="text-right">
+                            <p id="disp-cust-name" class="font-bold text-slate-700 text-sm">--</p>
+                            <p id="disp-cust-addr" class="text-xs text-slate-500 truncate max-w-[150px]">--</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 2. AI Insights -->
-                <!-- <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="lg:col-span-2 bg-gradient-to-br from-violet-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="font-bold flex items-center gap-2"><i class="fa-solid fa-robot"></i> AI Financial Executive Summary</h3>
-                            <button onclick="ai.generateSummary()" id="btn-summary" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-xs font-bold transition-colors">Analyze</button>
-                        </div>
-                        <div id="ai-summary-text" class="text-sm opacity-90 leading-relaxed prose prose-invert max-w-none min-h-[100px]">
-                            Click 'Analyze' to generate a Gemini-powered summary of these transactions.
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <h3 class="font-bold text-slate-700 mb-2">Ask Gemini</h3>
-                        <div id="chat-response" class="flex-1 overflow-y-auto text-sm text-slate-600 mb-3 bg-slate-50 p-2 rounded h-24 italic">
-                            "What is the total spent on gas?"
-                        </div>
-                        <div class="flex gap-2">
-                            <input type="text" id="chat-input" class="flex-1 border border-slate-200 rounded px-2 py-1 text-sm focus:outline-brand-ai" placeholder="Ask a question...">
-                            <button onclick="ai.ask()" class="bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700"><i class="fa-solid fa-paper-plane"></i></button>
-                        </div>
-                    </div>
-                </div> -->
-
                 <!-- 3. Financial Summary -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                        <p class="text-xs text-slate-400 font-bold uppercase">Start Balance</p>
-                        <p id="val-start-bal" class="text-xl font-bold text-slate-700 mt-1">--</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase">Start Bal</p>
+                        <p id="val-start-bal" class="text-sm font-bold text-slate-700 mt-1">--</p>
                     </div>
-                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm border-b-4 border-b-emerald-500">
-                        <p class="text-xs text-slate-400 font-bold uppercase">Total Credits</p>
-                        <p id="val-credits" class="text-xl font-bold text-emerald-600 mt-1">--</p>
-                        <p id="count-credits" class="text-[10px] text-slate-400">0 txns</p>
+                    <div class="p-3 bg-white rounded-lg border border-slate-200 shadow-sm">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase">End Bal</p>
+                        <p id="val-end-bal" class="text-sm font-bold text-slate-900 mt-1">--</p>
                     </div>
-                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm border-b-4 border-b-red-500">
-                        <p class="text-xs text-slate-400 font-bold uppercase">Total Debits</p>
-                        <p id="val-debits" class="text-xl font-bold text-red-600 mt-1">--</p>
-                        <p id="count-debits" class="text-[10px] text-slate-400">0 txns</p>
+                    <div
+                        class="p-3 bg-white rounded-lg border border-slate-200 shadow-sm border-b-2 border-b-emerald-500">
+                        <div class="flex justify-between items-center">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Credits</p>
+                            <span id="count-credits"
+                                class="text-[9px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded">0 txns</span>
+                        </div>
+                        <p id="val-credits" class="text-sm font-bold text-emerald-600 mt-1">--</p>
                     </div>
-                    <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
-                        <p class="text-xs text-slate-400 font-bold uppercase">End Balance</p>
-                        <p id="val-end-bal" class="text-xl font-bold text-slate-900 mt-1">--</p>
+                    <div class="p-3 bg-white rounded-lg border border-slate-200 shadow-sm border-b-2 border-b-red-500">
+                        <div class="flex justify-between items-center">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Debits</p>
+                            <span id="count-debits" class="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded">0
+                                txns</span>
+                        </div>
+                        <p id="val-debits" class="text-sm font-bold text-red-600 mt-1">--</p>
                     </div>
                 </div>
 
                 <!-- 4. Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                        <h4 class="font-bold text-slate-700 mb-4 text-sm">Daily Balance Trend</h4>
-                        <div class="h-64 relative"><canvas id="chart-balance"></canvas></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="font-bold text-slate-700 mb-2 text-xs">Balance Trend</h4>
+                        <div class="h-40 relative"><canvas id="chart-balance"></canvas></div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                        <h4 class="font-bold text-slate-700 mb-4 text-sm">Transaction Volume</h4>
-                        <div class="h-64 relative"><canvas id="chart-flow"></canvas></div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="font-bold text-slate-700 mb-2 text-xs">Cash Flow</h4>
+                        <div class="h-40 relative"><canvas id="chart-flow"></canvas></div>
                     </div>
                 </div>
 
                 <!-- 5. Transactions Table -->
                 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                        <h3 class="font-bold text-slate-800">Transactions</h3>
-                        <span class="text-xs px-2 py-1 bg-white border rounded text-slate-500" id="tx-count">0 items</span>
+                    <div class="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                        <h3 class="font-bold text-slate-800 text-sm">Transactions</h3>
+                        <span class="text-[10px] px-2 py-1 bg-white border rounded text-slate-500" id="tx-count">0
+                            items</span>
                     </div>
-                    <div class="overflow-x-auto scroller max-h-[500px]">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-white text-slate-500 font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
+                    <div class="overflow-x-auto scroller max-h-[400px]">
+                        <table class="w-full text-left text-xs">
+                            <thead
+                                class="bg-white text-slate-500 font-semibold uppercase text-[10px] sticky top-0 shadow-sm z-10">
                                 <tr>
-                                    <th class="p-4 bg-slate-50">Date</th>
-                                    <th class="p-4 bg-slate-50">Description</th>
-                                    <th class="p-4 bg-slate-50">Type</th>
-                                    <th class="p-4 bg-slate-50">Check #</th>
-                                    <th class="p-4 bg-slate-50 text-right">Amount</th>
-                                    <th class="p-4 bg-slate-50 text-right">Run Bal</th>
+                                    <th class="p-2 bg-slate-50">Date</th>
+                                    <th class="p-2 bg-slate-50">Desc</th>
+                                    <th class="p-2 bg-slate-50 text-right">Amt</th>
+                                    <th class="p-2 bg-slate-50 text-right">Bal</th>
                                 </tr>
                             </thead>
                             <tbody id="tx-body" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -302,23 +350,9 @@
         </div>
     </main>
 
-    <!-- PDF Modal -->
-    <div id="pdf-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center shrink-0">
-                <h3 id="pdf-modal-title" class="font-bold text-lg">PDF Preview</h3>
-                <button onclick="app.closePreview()" class="text-slate-400 hover:text-slate-600">
-                    <i class="fa-solid fa-times text-2xl"></i>
-                </button>
-            </div>
-            <div class="flex-1 p-2 bg-slate-100">
-                <embed id="modal-pdf-embed" src="" type="application/pdf" width="100%" height="100%">
-            </div>
-        </div>
-    </div>
-
     <!-- AI Prompt Modal -->
-    <div id="ai-prompt-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div id="ai-prompt-modal"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col">
             <div class="p-4 border-b flex justify-between items-center shrink-0">
                 <h3 id="ai-prompt-modal-title" class="font-bold text-lg">Edit AI Prompt</h3>
@@ -327,8 +361,11 @@
                 </button>
             </div>
             <div class="flex-1 p-4 flex flex-col gap-2">
-                <textarea id="ai-prompt-editor" class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600" spellcheck="false"></textarea>
-                <button onclick="ui.savePrompt()" class="bg-brand-ai hover:bg-violet-700 text-white py-2 rounded-lg text-sm font-bold transition-all">
+                <textarea id="ai-prompt-editor"
+                    class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600"
+                    spellcheck="false"></textarea>
+                <button onclick="ui.savePrompt()"
+                    class="bg-brand-ai hover:bg-violet-700 text-white py-2 rounded-lg text-sm font-bold transition-all">
                     Save and Close
                 </button>
             </div>
@@ -350,13 +387,13 @@
             },
 
             execute: (text, config) => {
-                const result = { 
-                    bank: config.name, 
-                    accountNumber: "N/A", 
-                    period: "N/A", 
-                    customer: {}, 
+                const result = {
+                    bank: config.name,
+                    accountNumber: "N/A",
+                    period: "N/A",
+                    customer: {},
                     summary: { start: 0, end: 0, credits: 0, debits: 0 },
-                    transactions: [] 
+                    transactions: []
                 };
 
                 // 1. Extract Fields via Regex
@@ -396,21 +433,21 @@
                     const dateRegex = /"(\d{1,2}\/\d{1,2}\/\d{4})/g;
                     let match;
                     const indices = [];
-                    while ((match = dateRegex.exec(text)) !== null) indices.push({index: match.index, date: match[1]});
-                    
+                    while ((match = dateRegex.exec(text)) !== null) indices.push({ index: match.index, date: match[1] });
+
                     for (let i = 0; i < indices.length; i++) {
                         const current = indices[i];
-                        const next = indices[i+1];
+                        const next = indices[i + 1];
                         const endIdx = next ? next.index : text.indexOf("Ending Balance", current.index);
                         if (endIdx === -1) continue;
-                        
+
                         const block = text.substring(current.index, endIdx);
-                        const tokens = [...block.matchAll(/"([^"]*)"/g)].map(m => ({val: m[1], idx: m.index}));
-                        
+                        const tokens = [...block.matchAll(/"([^"]*)"/g)].map(m => ({ val: m[1], idx: m.index }));
+
                         if (tokens.length >= 2) {
                             let desc = tokens[1].val.replace(/[\r\n]+/g, ' ').trim();
                             let amount = 0, type = 'debit', balance = 0, checkNum = "";
-                            
+
                             // Check for Check #
                             const chk = desc.match(/\b(\d{4,6})\b/);
                             if (chk && !desc.includes("Ref#" + chk[1])) checkNum = chk[1];
@@ -423,7 +460,7 @@
                                 const gap = block.substring(tokens[1].idx + tokens[1].val.length, moneyTokens[0].idx);
                                 if (gap.includes(',,') || gap.includes(', ,')) { type = 'debit'; amount = -Math.abs(amtVal); }
                                 else { type = 'credit'; amount = Math.abs(amtVal); }
-                                
+
                                 if (moneyTokens.length > 1) balance = Parser.parseMoney(moneyTokens[1].val);
                             }
                             result.transactions.push({ date: current.date, description: desc, amount, type, balance, checkNumber: checkNum });
@@ -464,6 +501,7 @@
             currentFile: null,
             currentPdfUrl: null,
             aiPlatform: 'gemini',
+            aiModel: '',
             aiPrompts: {
                 identity: "",
                 balances: "",
@@ -474,43 +512,80 @@
 
             saveAiSettings: () => {
                 app.aiPlatform = document.getElementById('ai-platform').value;
+                app.aiModel = document.getElementById('ai-model').value;
                 app.apiKey = document.getElementById('api-key').value;
                 localStorage.setItem('aiPlatform', app.aiPlatform);
+                localStorage.setItem('aiModel', app.aiModel);
                 localStorage.setItem('apiKey', app.apiKey);
                 // No alert needed for this frequent action
             },
 
             loadAiSettings: () => {
-                const platform = localStorage.getItem('aiPlatform');
+                const platform = localStorage.getItem('aiPlatform') || 'gemini';
+                const model = localStorage.getItem('aiModel');
                 const key = localStorage.getItem('apiKey');
-                if (platform) {
-                    app.aiPlatform = platform;
-                    document.getElementById('ai-platform').value = platform;
+
+                app.aiPlatform = platform;
+                document.getElementById('ai-platform').value = platform;
+
+                // Update options first so we can set the value
+                app.updateModelOptions();
+
+                if (model) {
+                    app.aiModel = model;
+                    // Verify if this model exists in current options, if not default to first
+                    const select = document.getElementById('ai-model');
+                    if ([...select.options].some(o => o.value === model)) {
+                        select.value = model;
+                    } else {
+                        app.aiModel = select.value;
+                    }
+                } else {
+                    app.aiModel = document.getElementById('ai-model').value;
                 }
+
                 if (key) {
                     app.apiKey = key;
                     document.getElementById('api-key').value = key;
                 }
             },
 
-            openPreview: () => {
-                if (app.currentPdfUrl) {
-                    document.getElementById('modal-pdf-embed').src = app.currentPdfUrl;
-                    document.getElementById('pdf-modal-title').innerText = app.currentFile.name;
-                    document.getElementById('pdf-modal').classList.remove('hidden');
-                }
+            updateModelOptions: () => {
+                const platform = document.getElementById('ai-platform').value;
+                const modelSelect = document.getElementById('ai-model');
+                modelSelect.innerHTML = ''; // Clear existing
+
+                const models = {
+                    gemini: [
+                        { val: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+                        { val: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+                        { val: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp' },
+                        { val: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+                        { val: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' }
+                    ],
+                    openai: [
+                        { val: 'gpt-4o', label: 'GPT-4o' },
+                        { val: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+                        { val: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+                        { val: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+                    ]
+                };
+
+                (models[platform] || []).forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.val;
+                    opt.innerText = m.label;
+                    modelSelect.appendChild(opt);
+                });
             },
 
-            closePreview: () => {
-                document.getElementById('modal-pdf-embed').src = '';
-                document.getElementById('pdf-modal').classList.add('hidden');
-            },
+            // openPreview and closePreview removed (embedded in main layout)
 
             clearFile: () => {
                 // Reset file input
                 const uploader = document.getElementById('pdf-upload');
                 uploader.value = null;
-                
+
                 // Revoke URL
                 if (app.currentPdfUrl) {
                     URL.revokeObjectURL(app.currentPdfUrl);
@@ -527,6 +602,12 @@
                 document.getElementById('upload-prompt').classList.remove('hidden');
                 document.getElementById('file-info').classList.add('hidden');
                 document.getElementById('file-name').innerText = "";
+
+                // Reset Center Panel
+                document.getElementById('pdf-placeholder').classList.remove('hidden');
+                const embed = document.getElementById('main-pdf-embed');
+                embed.src = "";
+                embed.classList.add('hidden');
             },
 
 
@@ -537,6 +618,7 @@
                     app.currentConfig = DefaultConfigs[firstConfigKey];
                     document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
                 }
+                ui.initResizers();
             },
 
             reset: () => {
@@ -549,7 +631,7 @@
                     app.clearFile();
                     return;
                 }
-                
+
                 // Revoke previous PDF object URL
                 if (app.currentPdfUrl) {
                     URL.revokeObjectURL(app.currentPdfUrl);
@@ -559,9 +641,16 @@
                 app.currentPdfUrl = URL.createObjectURL(file);
 
                 // Update UI
+                // Update UI
                 document.getElementById('file-name').innerText = file.name;
                 document.getElementById('upload-prompt').classList.add('hidden');
                 document.getElementById('file-info').classList.remove('hidden');
+
+                // Update Center Panel
+                document.getElementById('pdf-placeholder').classList.add('hidden');
+                const embed = document.getElementById('main-pdf-embed');
+                embed.src = app.currentPdfUrl;
+                embed.classList.remove('hidden');
 
                 // Select UI elements
                 const statusEl = document.getElementById('text-status');
@@ -588,18 +677,18 @@
                         app.currentText = errorString; // Capture error state
                     } else {
                         statusEl.innerHTML = '<i class="fa-solid fa-check text-emerald-500"></i> Done';
-                        
+
                         const extractedText = data.ExtractedPdfText || "";
                         const detectedBankKey = data.detectedBankKey;
                         const detectedBankTemplate = data.detectedBankTemplate;
 
                         // Update UI
-                        resultEl.value = extractedText; 
-                        
+                        resultEl.value = extractedText;
+
                         // Update internal app state as requested
-                        app.currentText = extractedText; 
-                        console.log('Extracted Text :', extractedText); 
-                        
+                        app.currentText = extractedText;
+                        console.log('Extracted Text :', extractedText);
+
                         if (detectedBankKey && detectedBankTemplate) {
                             app.currentConfig = detectedBankTemplate;
                             document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
@@ -630,9 +719,9 @@
                     const json = JSON.parse(document.getElementById('config-editor').value);
                     app.currentConfig = json;
                     // Run the parser again with the new config
-                    if(app.currentText) app.runParser();
+                    if (app.currentText) app.runParser();
                     alert("Configuration Applied & Updated!");
-                } catch(e) { alert("Invalid JSON"); }
+                } catch (e) { alert("Invalid JSON"); }
             },
 
             saveConfigToFile: async () => {
@@ -644,11 +733,11 @@
                         alert("Configuration must have a 'name' field to be saved.");
                         return;
                     }
-                    
+
                     let keyToUpdate = null;
                     // Find existing config by name to update it
-                    for(const key in DefaultConfigs) {
-                        if(DefaultConfigs[key].name === currentConfig.name) {
+                    for (const key in DefaultConfigs) {
+                        if (DefaultConfigs[key].name === currentConfig.name) {
                             keyToUpdate = key;
                             break;
                         }
@@ -658,8 +747,8 @@
                     const configKey = keyToUpdate || currentConfig.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 
                     DefaultConfigs[configKey] = currentConfig;
-                    
-                    const url = 'http://127.0.0.1:5000/save_templates'; 
+
+                    const url = 'http://127.0.0.1:5000/save_templates';
                     const res = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -690,7 +779,7 @@
             renderDashboard: (data) => {
                 document.getElementById('empty-state').style.display = 'none';
                 document.getElementById('dashboard').classList.remove('hidden');
-                
+
                 // Header
                 document.getElementById('disp-bank-name').innerText = data.bank;
                 document.getElementById('disp-acct-num').innerText = data.accountNumber;
@@ -703,9 +792,9 @@
                 document.getElementById('val-end-bal').innerText = "$" + data.summary.end.toFixed(2);
                 document.getElementById('val-credits').innerText = "$" + data.summary.credits.toFixed(2);
                 document.getElementById('val-debits').innerText = "$" + Math.abs(data.summary.debits).toFixed(2);
-                
-                document.getElementById('count-credits').innerText = data.transactions.filter(t=>t.amount>0).length + " txns";
-                document.getElementById('count-debits').innerText = data.transactions.filter(t=>t.amount<0).length + " txns";
+
+                document.getElementById('count-credits').innerText = data.transactions.filter(t => t.amount > 0).length + " txns";
+                document.getElementById('count-debits').innerText = data.transactions.filter(t => t.amount < 0).length + " txns";
 
                 // Table
                 const tbody = document.getElementById('tx-body');
@@ -716,32 +805,36 @@
                         <td class="p-4 bg-white font-medium">${t.description}</td>
                         <td class="p-4 bg-white text-xs capitalize"><span class="px-2 py-1 rounded-full font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${t.type}</span></td>
                         <td class="p-4 bg-white"><span class="bg-slate-100 px-2 py-1 rounded text-xs">${t.checkNumber || '-'}</span></td>
-                        <td class="p-4 bg-white text-right font-bold ${t.amount>0?'text-emerald-600':'text-red-600'}">${t.amount.toFixed(2)}</td>
+                        <td class="p-4 bg-white text-right font-bold ${t.amount > 0 ? 'text-emerald-600' : 'text-red-600'}">${t.amount.toFixed(2)}</td>
                         <td class="p-4 bg-white text-right text-slate-400 text-xs">${t.balance ? t.balance.toFixed(2) : '-'}</td>
                     </tr>
                 `).join('');
 
                 // Charts
                 app.renderCharts(data);
+
+                // Update JSON Output
+                document.getElementById('json-output').innerText = JSON.stringify(data, null, 2);
+                document.getElementById('dashboard-header').classList.remove('hidden');
             },
 
             renderCharts: (data) => {
-                if(app.chartInstances.bal) app.chartInstances.bal.destroy();
-                if(app.chartInstances.flow) app.chartInstances.flow.destroy();
+                if (app.chartInstances.bal) app.chartInstances.bal.destroy();
+                if (app.chartInstances.flow) app.chartInstances.flow.destroy();
 
                 app.chartInstances.bal = new Chart(document.getElementById('chart-balance'), {
                     type: 'line',
                     data: {
-                        labels: data.transactions.map(t=>t.date),
+                        labels: data.transactions.map(t => t.date),
                         datasets: [{
                             label: 'Balance',
-                            data: data.transactions.map(t=>t.balance || 0),
+                            data: data.transactions.map(t => t.balance || 0),
                             borderColor: '#8b5cf6',
                             tension: 0.4,
                             pointRadius: 2
                         }]
                     },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}}, scales:{x:{display:false}} }
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false } } }
                 });
 
                 app.chartInstances.flow = new Chart(document.getElementById('chart-flow'), {
@@ -754,7 +847,7 @@
                             borderRadius: 8
                         }]
                     },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: {legend:{display:false}} }
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
                 });
             }
         };
@@ -779,12 +872,16 @@
                         'Authorization': `Bearer ${app.apiKey}`
                     };
                     body = JSON.stringify({
-                        model: "gpt-4-turbo", // Or another suitable model
+                        model: app.aiModel || "gpt-4o",
                         messages: [{ role: "user", content: prompt }],
                         temperature: 0.1
                     });
                 } else { // Default to Gemini
-                    url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${app.apiKey}`;
+                    // Gemini URL structure might vary by model version so we handle experimental vs standard
+                    // Standard: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+                    const modelName = app.aiModel || 'gemini-2.0-flash-exp';
+                    url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${app.apiKey}`;
+
                     headers = { 'Content-Type': 'application/json' };
                     body = JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }],
@@ -817,13 +914,13 @@
                 if (!ai._validate()) return;
                 const raw = document.getElementById('raw-input').value;
                 if (!raw) return alert("No text available. Upload a PDF first.");
-               
+
                 const status = document.getElementById('ai-status');
                 status.innerText = `Analyzing ${part}...`;
                 status.classList.remove('hidden');
 
                 let currentConfig = {};
-                try { currentConfig = JSON.parse(document.getElementById('config-editor').value); } catch(e){}
+                try { currentConfig = JSON.parse(document.getElementById('config-editor').value); } catch (e) { }
 
                 let prompt = "";
                 const snippetLengths = { identity: 1000, balances: 2000, transactions: 3000, full: 4000 };
@@ -839,7 +936,7 @@
                 const response = await ai.call(prompt);
                 if (response.startsWith("AI Error") || response === "API Key Missing") return;
                 const cleanJson = response.replace(/```json|```/g, '').trim();
-               
+
                 try {
                     const newPart = JSON.parse(cleanJson);
                     // Merge
@@ -861,15 +958,15 @@
                     document.getElementById('config-editor').value = JSON.stringify(currentConfig, null, 2);
                     status.innerText = "Done!";
                     setTimeout(() => status.classList.add('hidden'), 2000);
-                } catch(e) { alert("AI parsing error. Try again."); status.classList.add('hidden'); }
+                } catch (e) { alert("AI parsing error. Try again."); status.classList.add('hidden'); }
             },
 
             generateSummary: async () => {
                 if (!ai._validate()) return;
-                if(!app.parsedData) return;
+                if (!app.parsedData) return;
                 const out = document.getElementById('ai-summary-text');
                 out.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...';
-                
+
                 const txs = JSON.stringify(app.parsedData.transactions.slice(0, 30));
                 const prompt = `Analyze these bank transactions: ${txs}. 
                 Provide an "Executive Summary" in Markdown. 
@@ -886,16 +983,16 @@
 
             ask: async () => {
                 if (!ai._validate()) return;
-                if(!app.parsedData) return;
+                if (!app.parsedData) return;
                 const q = document.getElementById('chat-input').value;
-                if(!q) return;
-                
+                if (!q) return;
+
                 const box = document.getElementById('chat-response');
                 box.innerText = "Thinking...";
-                
+
                 const txs = JSON.stringify(app.parsedData.transactions);
                 const prompt = `Context: ${txs}. User Question: "${q}". Answer concisely.`;
-                
+
                 const res = await ai.call(prompt);
                 if (res.startsWith("AI Error") || res === "API Key Missing") return;
                 box.innerText = res;
@@ -908,14 +1005,14 @@
                 document.getElementById('view-config').classList.add('hidden');
                 document.getElementById('tab-upload').classList.remove('text-brand-ai', 'border-b-2', 'border-brand-ai');
                 document.getElementById('tab-config').classList.remove('text-brand-ai', 'border-b-2', 'border-brand-ai');
-                
+
                 document.getElementById(`view-${tab}`).classList.remove('hidden');
                 document.getElementById(`tab-${tab}`).classList.add('text-brand-ai', 'border-b-2', 'border-brand-ai');
             },
             currentEditingPrompt: null,
             showPromptModal: (part, buttonElement) => {
                 ui.currentEditingPrompt = part;
-                
+
                 // Load the specific prompt from the JSON file on demand
                 fetch('data/prompts.json')
                     .then(response => response.json())
@@ -955,7 +1052,7 @@
             },
             savePromptsToFile: async () => {
                 try {
-                    const url = 'http://127.0.0.1:5000/save_prompts'; 
+                    const url = 'http://127.0.0.1:5000/save_prompts';
                     const res = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -970,6 +1067,48 @@
                     }
                 } catch (e) {
                     alert("Failed to save prompts to the server.\n" + e.message);
+                }
+            },
+            initResizers: () => {
+                const initDrag = (e, resizer, panel) => {
+                    const startX = e.clientX;
+                    const startWidth = panel.offsetWidth;
+                    const mainLayout = document.getElementById('main-layout');
+
+                    const doDrag = (e) => {
+                        const dx = e.clientX - startX;
+                        panel.style.width = (startWidth + dx) + 'px';
+                    };
+
+                    const stopDrag = () => {
+                        document.removeEventListener('mousemove', doDrag);
+                        document.removeEventListener('mouseup', stopDrag);
+                        mainLayout.classList.remove('resizing');
+                        resizer.classList.remove('active');
+                    };
+
+                    document.addEventListener('mousemove', doDrag);
+                    document.addEventListener('mouseup', stopDrag);
+                    mainLayout.classList.add('resizing');
+                    resizer.classList.add('active');
+                };
+
+                document.getElementById('resizer1').addEventListener('mousedown', e => initDrag(e, document.getElementById('resizer1'), document.getElementById('panel-left')));
+                document.getElementById('resizer2').addEventListener('mousedown', e => initDrag(e, document.getElementById('resizer2'), document.getElementById('panel-center')));
+            },
+            toggleRightView: () => {
+                const dash = document.getElementById('dashboard');
+                const json = document.getElementById('json-view');
+                const btn = document.getElementById('toggle-json-btn');
+
+                if (dash.classList.contains('hidden')) {
+                    dash.classList.remove('hidden');
+                    json.classList.add('hidden');
+                    btn.innerHTML = '<i class="fa-solid fa-code mr-1"></i> View JSON';
+                } else {
+                    dash.classList.add('hidden');
+                    json.classList.remove('hidden');
+                    btn.innerHTML = '<i class="fa-solid fa-chart-pie mr-1"></i> View Dashboard';
                 }
             }
         };
@@ -1004,4 +1143,5 @@
 
     </script>
 </body>
+
 </html>
