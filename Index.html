@@ -76,6 +76,93 @@
         .resizing * {
             pointer-events: none !important;
         }
+
+        /* Notifications */
+        #notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .notification {
+            pointer-events: auto;
+            min-width: 300px;
+            max-width: 450px;
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            transform: translateX(120%);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification-success {
+            border-left-color: #10b981;
+        }
+
+        .notification-error {
+            border-left-color: #ef4444;
+        }
+
+        .notification-info {
+            border-left-color: #3b82f6;
+        }
+
+        .notification-warning {
+            border-left-color: #f59e0b;
+        }
+
+        .notification-icon {
+            font-size: 1.25rem;
+            margin-top: 2px;
+        }
+
+        .notification-success .notification-icon {
+            color: #10b981;
+        }
+
+        .notification-error .notification-icon {
+            color: #ef4444;
+        }
+
+        .notification-info .notification-icon {
+            color: #3b82f6;
+        }
+
+        .notification-warning .notification-icon {
+            color: #f59e0b;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 700;
+            font-size: 0.875rem;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+
+        .notification-message {
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
     </style>
 </head>
 
@@ -599,6 +686,7 @@
                 app.currentFile = null;
                 app.currentPdfUrl = null;
                 app.currentText = "";
+                app.parsedData = null;
                 document.getElementById('raw-input').value = "";
                 document.getElementById('text-status').classList.add('hidden');
 
@@ -612,6 +700,13 @@
                 const embed = document.getElementById('main-pdf-embed');
                 embed.src = "";
                 embed.classList.add('hidden');
+
+                // Reset Right Panel (Analysis Results)
+                document.getElementById('dashboard').classList.add('hidden');
+                document.getElementById('dashboard-header').classList.add('hidden');
+                document.getElementById('empty-state').style.display = 'flex';
+                document.getElementById('json-view').classList.add('hidden');
+                document.getElementById('json-output').innerText = "";
             },
 
 
@@ -724,8 +819,8 @@
                     app.currentConfig = json;
                     // Run the parser again with the new config
                     if (app.currentText) app.runParser();
-                    alert("Configuration Applied & Updated!");
-                } catch (e) { alert("Invalid JSON"); }
+                    ui.notify("Configuration Applied & Updated!", "success");
+                } catch (e) { ui.notify("Invalid JSON", "error"); }
             },
 
             saveConfigToFile: async () => {
@@ -734,7 +829,7 @@
                     const currentConfig = JSON.parse(configEditor.value);
 
                     if (!currentConfig.name) {
-                        alert("Configuration must have a 'name' field to be saved.");
+                        ui.notify("Configuration must have a 'name' field to be saved.", "warning");
                         return;
                     }
 
@@ -760,24 +855,24 @@
                     });
 
                     if (res.ok) {
-                        alert(`Configuration '${currentConfig.name}' saved successfully!`);
+                        ui.notify(`Configuration '${currentConfig.name}' saved successfully!`, "success");
                     } else {
                         const error = await res.json();
-                        alert(`Error saving configuration: ${error.error || 'Unknown error'}`);
+                        ui.notify(`Error saving configuration: ${error.error || 'Unknown error'}`, "error");
                     }
 
                 } catch (e) {
-                    alert("Invalid JSON in config editor. Cannot save.\n" + e.message);
+                    ui.notify("Invalid JSON in config editor. Cannot save.\n" + e.message, "error");
                 }
             },
 
             runParser: () => {
-                if (!app.currentText) return alert("No text to parse");
+                if (!app.currentText) return ui.notify("No text to parse", "warning");
                 try {
                     const data = Parser.execute(app.currentText, app.currentConfig);
                     app.parsedData = data;
                     app.renderDashboard(data);
-                } catch (e) { console.error(e); alert("Parsing failed. Check config."); }
+                } catch (e) { console.error(e); ui.notify("Parsing failed. Check config.", "error"); }
             },
 
             renderDashboard: (data) => {
@@ -860,7 +955,7 @@
         const ai = {
             _validate: () => {
                 if (!app.apiKey) {
-                    alert("AI API Key is missing. Please add the correct Key.");
+                    ui.notify("AI API Key is missing. Please add the correct Key.", "error");
                     return false;
                 }
                 return true;
@@ -909,7 +1004,7 @@
                     }
                 } catch (e) {
                     console.error(e);
-                    alert(`AI Request Failed: ${e.message}`);
+                    ui.notify(`AI Request Failed: ${e.message}`, "error");
                     return `AI Error: ${e.message}`;
                 }
             },
@@ -917,7 +1012,7 @@
             generatePart: async (part) => {
                 if (!ai._validate()) return;
                 const raw = document.getElementById('raw-input').value;
-                if (!raw) return alert("No text available. Upload a PDF first.");
+                if (!raw) return ui.notify("No text available. Upload a PDF first.", "warning");
 
                 const status = document.getElementById('ai-status');
                 status.innerText = `Analyzing ${part}...`;
@@ -934,7 +1029,7 @@
                     prompt = app.aiPrompts[part].replace('{TEXT_SNIPPET}', snippet);
                 } else {
                     status.classList.add('hidden');
-                    return alert(`Unknown AI generation part: ${part}`);
+                    return ui.notify(`Unknown AI generation part: ${part}`, "error");
                 }
 
                 const response = await ai.call(prompt);
@@ -962,7 +1057,7 @@
                     document.getElementById('config-editor').value = JSON.stringify(currentConfig, null, 2);
                     status.innerText = "Done!";
                     setTimeout(() => status.classList.add('hidden'), 2000);
-                } catch (e) { alert("AI parsing error. Try again."); status.classList.add('hidden'); }
+                } catch (e) { ui.notify("AI parsing error. Try again.", "error"); status.classList.add('hidden'); }
             },
 
             generateSummary: async () => {
@@ -1045,7 +1140,7 @@
                         const buttonText = btnClone.innerText.trim();
                         document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${buttonText}`;
                         document.getElementById('ai-prompt-modal').classList.remove('hidden');
-                        alert('Could not load latest prompts from server. Displaying cached version.');
+                        ui.notify('Could not load latest prompts from server. Displaying cached version.', 'warning');
                     });
             },
             hidePromptModal: () => {
@@ -1070,13 +1165,13 @@
                     });
 
                     if (res.ok) {
-                        alert(`AI Prompts saved successfully!`);
+                        ui.notify(`AI Prompts saved successfully!`, 'success');
                     } else {
                         const error = await res.json();
-                        alert(`Error saving prompts: ${error.error || 'Unknown error'}`);
+                        ui.notify(`Error saving prompts: ${error.error || 'Unknown error'}`, 'error');
                     }
                 } catch (e) {
-                    alert("Failed to save prompts to the server.\n" + e.message);
+                    ui.notify("Failed to save prompts to the server.\n" + e.message, 'error');
                 }
             },
             initResizers: () => {
@@ -1120,6 +1215,54 @@
                     json.classList.remove('hidden');
                     btn.innerHTML = '<i class="fa-solid fa-chart-pie mr-1"></i> View Dashboard';
                 }
+            },
+            notify: (message, type = 'info', title = null) => {
+                const container = document.getElementById('notification-container');
+                const notification = document.createElement('div');
+                notification.className = `notification notification-${type}`;
+
+                const icons = {
+                    success: 'fa-circle-check',
+                    error: 'fa-circle-exclamation',
+                    info: 'fa-circle-info',
+                    warning: 'fa-triangle-exclamation'
+                };
+
+                const titles = {
+                    success: 'Success',
+                    error: 'Error',
+                    info: 'Notice',
+                    warning: 'Warning'
+                };
+
+                notification.innerHTML = `
+                    <div class="notification-icon">
+                        <i class="fa-solid ${icons[type]}"></i>
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-title">${title || titles[type]}</div>
+                        <div class="notification-message">${message}</div>
+                    </div>
+                `;
+
+                notification.onclick = () => {
+                    notification.classList.remove('show');
+                    setTimeout(() => notification.remove(), 300);
+                };
+
+                container.appendChild(notification);
+
+                // Trigger reflow for animation
+                notification.offsetHeight;
+                notification.classList.add('show');
+
+                // Auto dismiss
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.classList.remove('show');
+                        setTimeout(() => notification.remove(), 300);
+                    }
+                }, 5000);
             }
         };
 
@@ -1131,7 +1274,7 @@
             })
             .catch(error => {
                 console.error('Error loading templates.json:', error);
-                alert('Could not load templates.json. Please check the file and console for errors.');
+                ui.notify('Could not load templates.json. Please check the file and console for errors.', 'error');
             })
             .finally(() => {
                 // After templates are attempted, fetch prompts
@@ -1152,6 +1295,7 @@
             });
 
     </script>
+    <div id="notification-container"></div>
 </body>
 
 </html>
