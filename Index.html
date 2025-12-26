@@ -1028,7 +1028,10 @@
                             // Fallback to whatever is in memory if the file is incomplete
                             document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
                         }
-                        const buttonText = buttonElement.closest('button').querySelector('.text-left span, .text-center span').textContent.trim();
+                        const btn = buttonElement.closest('button');
+                        const btnClone = btn.cloneNode(true);
+                        btnClone.querySelectorAll('i').forEach(i => i.remove());
+                        const buttonText = btnClone.innerText.trim();
                         document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${buttonText}`;
                         document.getElementById('ai-prompt-modal').classList.remove('hidden');
                     })
@@ -1036,7 +1039,10 @@
                         console.error('Error loading prompts.json for modal:', error);
                         // Fallback to in-memory prompt on error
                         document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
-                        const buttonText = buttonElement.closest('button').querySelector('.text-left span, .text-center span').textContent.trim();
+                        const btn = buttonElement.closest('button');
+                        const btnClone = btn.cloneNode(true);
+                        btnClone.querySelectorAll('i').forEach(i => i.remove());
+                        const buttonText = btnClone.innerText.trim();
                         document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${buttonText}`;
                         document.getElementById('ai-prompt-modal').classList.remove('hidden');
                         alert('Could not load latest prompts from server. Displaying cached version.');
