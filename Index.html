@@ -187,7 +187,11 @@
                 </div>
 
                 <div class="grid grid-cols-1 gap-2 mb-2">
-                    <label class="text-xs font-bold text-slate-500 uppercase">Generators</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-bold text-slate-500 uppercase">Generators</label>
+                        <span id="ai-status"
+                            class="hidden text-[10px] font-bold text-brand-ai animate-pulse italic"></span>
+                    </div>
                     <button onclick="ai.generatePart('identity')"
                         class="w-full py-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-700 hover:text-brand-ai flex items-center px-2">1.
                         Bank ID <i onclick="event.stopPropagation(); ui.showPromptModal('identity', this)"
