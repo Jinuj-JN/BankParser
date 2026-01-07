@@ -229,8 +229,16 @@
                 <div class="flex-1 flex flex-col">
                     <label class="text-xs font-bold text-slate-400 uppercase mb-2 flex justify-between">
                         <span>Extracted Text</span>
-                        <span id="text-status" class="text-orange-500 hidden"><i
-                                class="fa-solid fa-spinner fa-spin"></i> Processing...</span>
+                        <div class="flex gap-2 items-center">
+                            <span id="text-status" class="text-orange-500 hidden mr-2"><i
+                                    class="fa-solid fa-spinner fa-spin"></i></span>
+                            <button onclick="app.loadSample('chase')" class="hover:text-brand-ai"
+                                title="Chase Sample">CH</button>
+                            <button onclick="app.loadSample('boa')" class="hover:text-brand-ai"
+                                title="BoA Sample">BA</button>
+                            <button onclick="app.loadSample('lili')" class="hover:text-brand-ai"
+                                title="Lili Sample">LI</button>
+                        </div>
                     </label>
                     <textarea id="raw-input"
                         class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600"
@@ -266,9 +274,15 @@
                         </div>
                         <div>
                             <label class="text-xs font-medium text-slate-600">API Key</label>
-                            <input type="password" id="api-key" onkeyup="app.saveAiSettings()"
-                                class="w-full mt-1 p-2 font-mono bg-white border border-slate-200 rounded-lg text-sm outline-none"
-                                placeholder="Key...">
+                            <div class="relative">
+                                <input type="password" id="api-key" onkeyup="app.saveAiSettings()"
+                                    class="w-full mt-1 p-2 pr-10 font-mono bg-white border border-slate-200 rounded-lg text-sm outline-none"
+                                    placeholder="Key...">
+                                <button onclick="ui.toggleApiKeyVisibility()"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 mt-0.5 text-slate-400 hover:text-slate-600 transition-colors">
+                                    <i id="api-key-toggle-icon" class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -403,7 +417,7 @@
                 </div>
 
                 <!-- 4. Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div class="hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                         <h4 class="font-bold text-slate-700 mb-2 text-xs">Balance Trend</h4>
                         <div class="h-40 relative"><canvas id="chart-balance"></canvas></div>
@@ -471,15 +485,59 @@
         // --- 2. PARSER ENGINE ---
         const Parser = {
             parseMoney: (str) => {
-                if (!str) return 0;
-                let clean = str.toString().replace(/[$,\s"\n]/g, '');
-                if (clean.includes('(') && clean.includes(')')) clean = '-' + clean.replace(/[()]/g, '');
-                return parseFloat(clean) || 0;
+                if (typeof str === 'number') return str;
+                if (typeof str !== 'string') return 0;
+                let clean = str.trim();
+                if (!clean) return 0;
+
+                let isNegative = false;
+
+                // Handle parentheses: (1,234.56) -> -1,234.56
+                if (clean.startsWith('(') && clean.endsWith(')')) {
+                    isNegative = true;
+                    clean = clean.substring(1, clean.length - 1);
+                }
+
+                // Check for leading or trailing minus sign or CR before stripping characters
+                if (clean.startsWith('-') || clean.endsWith('-') || clean.includes('CR')) {
+                    isNegative = true;
+                }
+
+                // Remove currency symbols, quotes, and normalize spaces
+                clean = clean.replace(/[$\s"']/g, '');
+
+                // Remove any remaining signs
+                clean = clean.replace(/[-+]/g, '');
+
+                // Handle European/International format detection
+                const lastComma = clean.lastIndexOf(',');
+                const lastDot = clean.lastIndexOf('.');
+
+                if (lastComma > -1 && lastComma > lastDot) {
+                    if (lastComma === clean.length - 3 || lastComma === clean.length - 2) {
+                        clean = clean.replace(/\./g, '').replace(',', '.');
+                    } else {
+                        clean = clean.replace(/,/g, '');
+                    }
+                } else {
+                    clean = clean.replace(/,/g, '');
+                }
+
+                let result = parseFloat(clean);
+                if (isNaN(result)) return 0;
+                return isNegative ? -Math.abs(result) : result;
+            },
+
+            inferYear: (period) => {
+                if (!period || period === "N/A") return new Date().getFullYear();
+                const match = period.match(/\b(20\d{2})\b/);
+                return match ? match[1] : new Date().getFullYear();
             },
 
             execute: (text, config) => {
+                if (!config) throw new Error("No configuration provided to parser");
                 const result = {
-                    bank: config.name,
+                    bank: config.name || "Unknown Bank",
                     accountNumber: "N/A",
                     period: "N/A",
                     customer: {},
@@ -489,22 +547,26 @@
 
                 // 1. Extract Fields via Regex
                 try {
-                    if (config.fields.accountNumber) {
-                        const m = text.match(new RegExp(config.fields.accountNumber));
-                        if (m) result.accountNumber = m[1];
-                    }
-                    if (config.fields.period) {
-                        const m = text.match(new RegExp(config.fields.period));
-                        if (m) result.period = m[1];
-                    }
-                    if (config.fields.startBalance) {
-                        const m = text.match(new RegExp(config.fields.startBalance));
-                        if (m) result.summary.start = Parser.parseMoney(m[1]);
-                    }
-                    if (config.fields.endBalance) {
-                        const m = text.match(new RegExp(config.fields.endBalance));
-                        if (m) result.summary.end = Parser.parseMoney(m[1]);
-                    }
+                    const fields = ['accountNumber', 'period', 'startBalance', 'endBalance'];
+                    fields.forEach(field => {
+                        if (config.fields[field]) {
+                            const m = text.match(new RegExp(config.fields[field]));
+                            if (m) {
+                                if (field.endsWith('Balance')) {
+                                    result.summary[field.replace('Balance', '')] = Parser.parseMoney(m[1]);
+                                } else if (field === 'totalCredits') {
+                                    result.summary.credits = Math.abs(Parser.parseMoney(m[1]));
+                                    result.summary.hasExtractedCredits = true;
+                                } else if (field === 'totalDebits') {
+                                    result.summary.debits = -Math.abs(Parser.parseMoney(m[1]));
+                                    result.summary.hasExtractedDebits = true;
+                                } else {
+                                    result[field] = m[1];
+                                }
+                            }
+                        }
+                    });
+
                     // Customer extraction
                     if (config.fields.customerStart && config.fields.customerEnd) {
                         const s = text.indexOf(config.fields.customerStart);
@@ -518,10 +580,13 @@
                     }
                 } catch (e) { console.error("Field extraction error", e); }
 
+                const year = Parser.inferYear(result.period);
+
                 // 2. Extract Transactions based on Strategy
                 if (config.strategy === 'row_reconstructor') {
-                    // Lili Specific Logic (Smart Block Analysis)
-                    const dateRegex = /"(\d{1,2}\/\d{1,2}\/\d{4})/g;
+                    // Generic block-based analysis
+                    const datePattern = config.datePattern || "(\\d{1,2}/\\d{1,2}/\\d{4})";
+                    const dateRegex = new RegExp(datePattern, 'g');
                     let match;
                     const indices = [];
                     while ((match = dateRegex.exec(text)) !== null) indices.push({ index: match.index, date: match[1] });
@@ -529,28 +594,67 @@
                     for (let i = 0; i < indices.length; i++) {
                         const current = indices[i];
                         const next = indices[i + 1];
-                        const endIdx = next ? next.index : text.indexOf("Ending Balance", current.index);
+                        const endMarker = config.endMarker || "Ending Balance";
+                        const endIdx = next ? next.index : text.indexOf(endMarker, current.index);
                         if (endIdx === -1) continue;
 
                         const block = text.substring(current.index, endIdx);
-                        const tokens = [...block.matchAll(/"([^"]*)"/g)].map(m => ({ val: m[1], idx: m.index }));
+
+                        // Improved tokenization: handle quoted OR space-separated
+                        let tokens = [];
+                        if (block.includes('"')) {
+                            tokens = [...block.matchAll(/"([^"]*)"/g)].map(m => ({
+                                val: m[1],
+                                idx: m.index,
+                                full: m[0]
+                            }));
+                        } else {
+                            // Fallback for plain text: split by 2+ spaces, tabs, or newlines
+                            const partRegex = /([^\s]{2,}(?:\s[^\s]{2,})*)/g;
+                            let m;
+                            while ((m = partRegex.exec(block)) !== null) {
+                                tokens.push({
+                                    val: m[1].trim(),
+                                    idx: m.index,
+                                    full: m[1]
+                                });
+                            }
+                        }
 
                         if (tokens.length >= 2) {
                             let desc = tokens[1].val.replace(/[\r\n]+/g, ' ').trim();
                             let amount = 0, type = 'debit', balance = 0, checkNum = "";
 
-                            // Check for Check #
-                            const chk = desc.match(/\b(\d{4,6})\b/);
-                            if (chk && !desc.includes("Ref#" + chk[1])) checkNum = chk[1];
-
-                            // Money
-                            const moneyTokens = tokens.slice(2).filter(t => /[0-9]/.test(t.val));
+                            const moneyTokens = tokens.slice(2).filter(t => {
+                                const val = t.val.trim();
+                                // Robust money pattern: allow signs, currency, parentheses, but MUST contain digits
+                                return /^[\$\-+\s"']*\(?[\d,.]+\)?[\-+\$\s"']*$/.test(val) && /[0-9]/.test(val);
+                            });
                             if (moneyTokens.length > 0) {
-                                const amtVal = Parser.parseMoney(moneyTokens[0].val);
-                                // Determine type by gap analysis
-                                const gap = block.substring(tokens[1].idx + tokens[1].val.length, moneyTokens[0].idx);
-                                if (gap.includes(',,') || gap.includes(', ,')) { type = 'debit'; amount = -Math.abs(amtVal); }
-                                else { type = 'credit'; amount = Math.abs(amtVal); }
+                                let amtVal = Parser.parseMoney(moneyTokens[0].val);
+
+                                // Type detection by gap analysis
+                                const gapStart = tokens[1].idx + tokens[1].full.length;
+                                const gapEnd = moneyTokens[0].idx;
+                                const gap = block.substring(gapStart, gapEnd);
+
+                                if (config.creditIndicator && gap.toLowerCase().includes(config.creditIndicator.toLowerCase())) {
+                                    type = 'credit';
+                                    amount = Math.abs(amtVal);
+                                } else if (config.debitIndicator && gap.toLowerCase().includes(config.debitIndicator.toLowerCase())) {
+                                    type = 'debit';
+                                    amount = -Math.abs(amtVal);
+                                } else {
+                                    // Fallback to gap analysis: long gaps often imply a second column (Credit)
+                                    // If gap is large, we check for double commas (CSV structure) or many spaces
+                                    if (gap.includes(',,') || gap.includes(', ,') || gap.length > 15) {
+                                        type = 'credit'; // Heuristic: Credits are often further right
+                                        amount = Math.abs(amtVal);
+                                    } else {
+                                        type = 'debit';
+                                        amount = -Math.abs(amtVal);
+                                    }
+                                }
 
                                 if (moneyTokens.length > 1) balance = Parser.parseMoney(moneyTokens[1].val);
                             }
@@ -558,27 +662,62 @@
                         }
                     }
                 } else if (config.strategy === 'regex_rows') {
-                    // F&M Logic
-                    const regex = new RegExp(config.transactionRegex, 'g');
+                    console.log(`Using regex_rows with pattern: ${config.transactionRegex}`);
+                    const regex = new RegExp(config.transactionRegex, 'gm');
+                    const mapping = config.mapping || { date: 1, description: 2, amount: 3, balance: null };
                     let match;
+                    let matchCount = 0;
                     while ((match = regex.exec(text)) !== null) {
-                        const amt = Parser.parseMoney(match[3]);
-                        const isDebit = amt > 0; // F&M lists debits as positive numbers in the checks list
+                        matchCount++;
+                        console.log(`Match ${matchCount}:`, match);
+                        const rawDate = match[mapping.date];
+                        const date = rawDate.includes('/') && rawDate.split('/').length < 3 ? `${rawDate}/${year}` : rawDate;
+
+                        let amt = 0;
+                        let type = 'debit';
+
+                        if (mapping.creditAmount && mapping.debitAmount) {
+                            // Two-column format
+                            const cred = Parser.parseMoney(match[mapping.creditAmount]);
+                            const deb = Parser.parseMoney(match[mapping.debitAmount]);
+                            if (cred !== 0) { amt = cred; type = 'credit'; }
+                            else if (deb !== 0) { amt = -Math.abs(deb); type = 'debit'; }
+                        } else {
+                            // Single column format
+                            amt = Parser.parseMoney(match[mapping.amount]);
+                            if (config.forceDebit) amt = -Math.abs(amt);
+                            else if (config.forceCredit) amt = Math.abs(amt);
+                            else if (config.signGroup && match[config.signGroup]) {
+                                const sig = match[config.signGroup].trim().toLowerCase();
+                                if (sig === '-' || sig.includes('debit') || sig.includes('dr') || sig.includes('withdrawal')) amt = -Math.abs(amt);
+                                else if (sig === '+' || sig.includes('credit') || sig.includes('cr') || sig.includes('deposit')) amt = Math.abs(amt);
+                            }
+                            type = amt >= 0 ? 'credit' : 'debit';
+                        }
+
+                        const bal = mapping.balance ? Parser.parseMoney(match[mapping.balance]) : 0;
+
                         result.transactions.push({
-                            date: match[1] + "/2025", // Infer year
-                            description: match[2],
-                            amount: isDebit ? -amt : amt,
-                            type: isDebit ? 'debit' : 'credit',
-                            balance: 0,
+                            date: date,
+                            description: match[mapping.description].replace(/[\r\n]+/g, ' ').trim(),
+                            amount: amt,
+                            type: type,
+                            balance: bal,
                             checkNumber: ""
                         });
                     }
                 }
 
-                // Calc totals
-                result.summary.credits = result.transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-                result.summary.debits = result.transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+                // Calc totals if not already extracted
+                if (!result.summary.hasExtractedCredits) {
+                    result.summary.credits = result.transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+                }
+                if (!result.summary.hasExtractedDebits) {
+                    result.summary.debits = result.transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+                }
 
+                console.log(`Final Summary:`, result.summary);
+                console.log(`Parsed ${result.transactions.length} transactions.`);
                 return result;
             }
         };
@@ -791,21 +930,28 @@
                         if (detectedBankKey && detectedBankTemplate) {
                             app.currentConfig = detectedBankTemplate;
                             document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
+                            ui.notify(`Bank detected: ${detectedBankTemplate.name}`, "success");
+                            app.runParser(); // Auto-run
                         } else {
-                            app.currentConfig = null;
-                            document.getElementById('config-editor').value = '';
+                            app.currentConfig = DefaultConfigs.generic || null;
+                            document.getElementById('config-editor').value = app.currentConfig ? JSON.stringify(app.currentConfig, null, 2) : '';
+                            ui.notify("Bank not detected. Using generic parser.", "warning");
+                            app.runParser(); // Auto-run with generic
                         }
                     }
                 } catch (err) {
-                    statusEl.innerHTML = 'Request failed: ' + err.message; //
-                    resultEl.value = '' + err;
+                    console.error('Upload Error:', err);
+                    statusEl.innerHTML = 'Upload failed';
+                    ui.notify("Server connection failed. Is api.py running?", "error");
                 }
             },
 
             loadSample: (type) => {
                 const samples = {
                     lili: `--- PAGE 1 ---\n"Account Number","Statement Period"\n"260102978186","1 Aug 2025-31 Aug, 2025"\n\n"Summary","Amount"\n"Beginning balance on 1 Aug, 2025","+$20,789.62"\n"Ending balance on 31 Aug, 2025","+$18,699.20"\n\n"Date","Check","Description","Deposits","Withdrawals","Ending Day Balance"\n"8/4/2025","4315\n\n\nPayroll Check J. McNally Ref#612448969\n",,"\n$2,500.00\n",\n"8/6/2025","65652\n\n\nMobile Check Deposit Knightolic Ref# 265446825\n","\n$27,560.00\n",,"\n$34,194.32\n"`,
-                    fm: `--- PAGE 1 ---\nFM BANK\n"Date","10/31/25"\n"Account No.","16114779"\n"Beginning Balance","1,349.27"\n"Ending Balance","925.20"\n"Checks In Number Order"\n"10/06","1170","420.08"\n"10/06","1171","400.00"`
+                    fm: `--- PAGE 1 ---\nFM BANK\n"Date","10/31/25"\n"Account No.","16114779"\n"Beginning Balance","1,349.27"\n"Ending Balance","925.20"\n"Checks In Number Order"\n"10/06","1170","420.08"\n"10/06","1171","400.00"`,
+                    chase: `JPMorgan Chase Bank, N.A.\nAccount Number: 1234567890\nOctober 01, 2025 to October 31, 2025\nBeginning Balance $1,234.56\nEnding Balance $2,345.67\n10/05 PAYROLL DEPOSIT 1,000.00 2,234.56\n10/10 RENT PAYMENT -800.00 1,434.56`,
+                    boa: `Bank of America, N.A. Preferred Rewards\nAccount number: 987654321012\nOctober 01, 2025 through October 31, 2025\nBeginning balance on Oct 01, 2025: $5,000.00\nEnding balance on Oct 31, 2025: $4,500.00\n10/15/25 CHECK #101 200.00\n10/20/25 ATM WITHDRAWAL 300.00`
                 };
                 app.currentText = samples[type];
                 document.getElementById('raw-input').value = app.currentText;
@@ -867,12 +1013,16 @@
             },
 
             runParser: () => {
-                if (!app.currentText) return ui.notify("No text to parse", "warning");
+                const textSnippet = document.getElementById('raw-input').value;
+                if (!textSnippet) return ui.notify("No text to parse", "warning");
                 try {
-                    const data = Parser.execute(app.currentText, app.currentConfig);
+                    const data = Parser.execute(textSnippet, app.currentConfig);
                     app.parsedData = data;
                     app.renderDashboard(data);
-                } catch (e) { console.error(e); ui.notify("Parsing failed. Check config.", "error"); }
+                } catch (e) {
+                    console.error(e);
+                    ui.notify("Parsing failed. " + e.message, "error");
+                }
             },
 
             renderDashboard: (data) => {
@@ -1026,18 +1176,32 @@
                 const snippet = raw.substring(0, snippetLengths[part] || 4000);
 
                 if (app.aiPrompts[part]) {
-                    prompt = app.aiPrompts[part].replace('{TEXT_SNIPPET}', snippet);
+                    prompt = app.aiPrompts[part].replaceAll('{TEXT_SNIPPET}', snippet);
                 } else {
-                    status.classList.add('hidden');
-                    return ui.notify(`Unknown AI generation part: ${part}`, "error");
+                    console.warn(`Prompt for ${part} is empty or missing. using hardcoded fallback.`);
+                    // Very basic fallback if JSON isn't loaded
+                    prompt = `Analyze this text for ${part}: ${snippet}`;
                 }
+
+                console.log(`Sending AI Prompt [${part}]:`, prompt);
 
                 const response = await ai.call(prompt);
                 if (response.startsWith("AI Error") || response === "API Key Missing") return;
-                const cleanJson = response.replace(/```json|```/g, '').trim();
+
+                // Robust JSON Extraction: Find the start and end of the JSON block
+                let jsonText = response;
+                const startIdx = response.indexOf('{');
+                const endIdx = response.lastIndexOf('}');
+
+                if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+                    jsonText = response.substring(startIdx, endIdx + 1);
+                } else {
+                    // Fallback to simpler cleaning if braces aren't found
+                    jsonText = response.replace(/```json|```/g, '').trim();
+                }
 
                 try {
-                    const newPart = JSON.parse(cleanJson);
+                    const newPart = JSON.parse(jsonText);
                     // Merge
                     if (part === 'full') {
                         // For a full generation, we replace the entire config
@@ -1058,43 +1222,6 @@
                     status.innerText = "Done!";
                     setTimeout(() => status.classList.add('hidden'), 2000);
                 } catch (e) { ui.notify("AI parsing error. Try again.", "error"); status.classList.add('hidden'); }
-            },
-
-            generateSummary: async () => {
-                if (!ai._validate()) return;
-                if (!app.parsedData) return;
-                const out = document.getElementById('ai-summary-text');
-                out.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Analyzing...';
-
-                const txs = JSON.stringify(app.parsedData.transactions.slice(0, 30));
-                const prompt = `Analyze these bank transactions: ${txs}. 
-                Provide an "Executive Summary" in Markdown. 
-                Include: 
-                1. **Burn Rate** (Total Debits). 
-                2. **Top Expense Categories**. 
-                3. **Anomalies** (Large or unusual checks). 
-                Keep it brief and professional.`;
-
-                const res = await ai.call(prompt);
-                if (res.startsWith("AI Error") || res === "API Key Missing") return;
-                out.innerHTML = marked.parse(res);
-            },
-
-            ask: async () => {
-                if (!ai._validate()) return;
-                if (!app.parsedData) return;
-                const q = document.getElementById('chat-input').value;
-                if (!q) return;
-
-                const box = document.getElementById('chat-response');
-                box.innerText = "Thinking...";
-
-                const txs = JSON.stringify(app.parsedData.transactions);
-                const prompt = `Context: ${txs}. User Question: "${q}". Answer concisely.`;
-
-                const res = await ai.call(prompt);
-                if (res.startsWith("AI Error") || res === "API Key Missing") return;
-                box.innerText = res;
             }
         };
 
@@ -1117,7 +1244,7 @@
                     .then(response => response.json())
                     .then(prompts => {
                         if (prompts && prompts[part]) {
-                            app.aiPrompts = prompts; // Update the entire set of prompts
+                            Object.assign(app.aiPrompts, prompts); // Merge instead of replace
                             document.getElementById('ai-prompt-editor').value = prompts[part];
                         } else {
                             // Fallback to whatever is in memory if the file is incomplete
@@ -1263,6 +1390,19 @@
                         setTimeout(() => notification.remove(), 300);
                     }
                 }, 5000);
+            },
+            toggleApiKeyVisibility: () => {
+                const input = document.getElementById('api-key');
+                const icon = document.getElementById('api-key-toggle-icon');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
             }
         };
 

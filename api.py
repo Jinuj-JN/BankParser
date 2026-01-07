@@ -21,14 +21,26 @@ def serve_data(filename):
 
 def detect_bank(text):
     """Detects the bank by searching for identifiers in the text."""
-    with open('data/templates.json', 'r') as f:
-        templates = json.load(f)
-    
-    for bank_key, template in templates.items():
-        if 'identifiers' in template:
-            for identifier in template['identifiers']:
-                if identifier.lower() in text.lower():
-                    return bank_key
+    try:
+        with open('data/templates.json', 'r') as f:
+            templates = json.load(f)
+        
+        # Count matches for each bank to find the best fit
+        scores = {}
+        for bank_key, template in templates.items():
+            if 'identifiers' in template:
+                score = 0
+                for identifier in template['identifiers']:
+                    if identifier.lower() in text.lower():
+                        score += 1
+                if score > 0:
+                    scores[bank_key] = score
+        
+        if scores:
+            # Return the bank with the highest number of identifier matches
+            return max(scores, key=scores.get)
+    except Exception as e:
+        print(f"Detection error: {e}")
     return None
 
 @app.route('/parse', methods=['POST'])

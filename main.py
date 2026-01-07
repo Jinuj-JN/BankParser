@@ -12,7 +12,7 @@ def parse_pdf(file_path):
     full_text = ""
     with pdfplumber.open(file_path) as pdf:
         for page in pdf.pages:
-            text = page.extract_text() or ""
+            text = page.extract_text(layout=True) or ""
             full_text += text + "\n"
 
     

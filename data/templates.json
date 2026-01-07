@@ -11,26 +11,40 @@
         "fields": {
             "accountNumber": "(?:Account Number:|PRIMARY ACCOUNT:)\\s*(\\d{8})",
             "period": "FORSTATEMENTPERIOD:\\s*(\\d{2}/\\d{2}/\\d{2}TO\\d{2}/\\d{2}/\\d{2})",
-            "startBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n\\s*(\\d{1,3}(?:,\\d{3})*\\.\\d{2})",
-            "endBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n(?:[^\\n]+)(\\d{1,3}(?:,\\d{3})*\\.\\d{2})"
+            "startBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n\\s*([\\d,.]+\\d{2})",
+            "endBalance": "Balance\\s+Credits\\s+Amount\\s+Debits\\s+Amount\\s+Fee\\s+Balance\\s*\\n(?:[^\\n]+)([\\d,.]+\\d{2})"
         },
-        "transactionRegex": "(\\d{2}/\\d{2})\\s+(\\d{1,3}(?:,\\d{3})*\\.\\d{2})(?:\\s+)?([^\\n]+)"
+        "transactionRegex": "(\\d{2}/\\d{2})\\s+([\\$]?[\\d,.]+\\d{2})(?:\\s+)?([^\\n]+)",
+        "mapping": {
+            "date": 1,
+            "amount": 2,
+            "description": 3
+        }
     },
     "lili_bank_style_statement": {
         "fields": {
             "accountNumber": "Account Number Statement Period\\s*([\\d]{12})",
-            "endBalance": "Ending balance on [\\w\\s,-]+ (\\$[\\d,]+\\.\\d{2})",
+            "endBalance": "Ending balance on [\\w\\s,-]+ ([\\$]?\\s*[\\d,.]+\\d{2})",
             "period": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
-            "startBalance": "Beginning balance on [\\w\\s,-]+ (\\$[\\d,]+\\.\\d{2})"
+            "startBalance": "Beginning balance on [\\w\\s,-]+ ([\\$]?\\s*[\\d,.]+\\d{2})"
         },
         "identifiers": [
-            "Caulfield home Contracting Inc.",
             "Lili Rewards",
-            "Checking Account Activity"
+            "Account Number Statement Period",
+            "Authorization Code Description",
+            "support@lili.co"
         ],
+        "mapping": {
+            "date": 1,
+            "description": 3,
+            "amount": 4,
+            "creditAmount": null,
+            "debitAmount": null,
+            "balance": 5
+        },
         "name": "Lili Bank Style Statement",
         "strategy": "regex_rows",
-        "transactionRegex": "(\\d{2}/\\d{2}/\\d{4})\\s+[\\d]+\\s+(.+?)\\s+(\\$-?[\\d,]+\\.\\d{2})\\s+\\$[\\d,]+\\.\\d{2}"
+        "transactionRegex": "(\\d{2}/\\d{2}/\\d{4})\\s+(\\d+)\\s+([\\w\\s\\*\\.,&;'-]+)\\s+\\$(-?[\\d,]+\\.\\d{2})\\s+\\$([\\d,]+\\.\\d{2})"
     },
     "digital_federal_credit_union": {
         "name": "Digital Federal Credit Union",
@@ -44,27 +58,37 @@
         "fields": {
             "accountNumber": "(?:PRIMARY SAVINGS|FREE BUSINESS CHECKING)\\s+ACCT#\\s*(\\d+)",
             "period": "STATEMENT PERIOD\\s*(\\d{2}-\\d{2}-\\d{2}\\s+to\\s+\\d{2}-\\d{2}-\\d{2})",
-            "startBalance": "PREVIOUS BALANCE\\s*([0-9,]+\\.\\d{2})",
-            "endBalance": "NEW BALANCE\\s*([0-9,]+\\.\\d{2})"
+            "startBalance": "PREVIOUS BALANCE\\s*([\\d,.]+\\d{2})",
+            "endBalance": "NEW BALANCE\\s*([\\d,.]+\\d{2})"
         },
-        "transactionRegex": "^(\\w{3}\\d{2})\\s+(.*?)\\s+(-?[\\d,]+\\.\\d{2})\\s+[\\d,]+\\.\\d{2}$"
+        "transactionRegex": "^(\\w{3}\\d{2})\\s+(.*?)\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?)\\s+([\\d,.]+(?:\\.\\d{2})?)$",
+        "mapping": {
+            "date": 1,
+            "description": 2,
+            "amount": 3,
+            "balance": 4
+        }
     },
     "farmers__merchants_bank": {
         "name": "Farmers & Merchants Bank",
         "strategy": "regex_rows",
         "identifiers": [
-            "FARMERS&MERCHANTSBANK",
-            "F&M Bank",
-            "NMLS#537388",
-            "Business Checking Plus Summary"
+            "FARMERS & MERCHANTS BANK",
+            "Business Analyzed Checking Summary",
+            "NMLS#537388"
         ],
         "fields": {
             "accountNumber": "AccountNumber\\s+(\\d+)",
-            "period": "StatementDates\\s+([\\d/]+thru[\\d/]+)",
-            "startBalance": "BeginningBalance\\s+([\\d,]+\\.\\d{2})",
-            "endBalance": "EndingBalance\\s+([\\d,]+\\.\\d{2})"
+            "period": "StatementDates\\s+(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}\\s*thru\\s*\\d{1,2}\\/\\d{1,2}\\/\\d{2,4})",
+            "startBalance": "BeginningBalance\\s+([\\d,.]+\\d{2})",
+            "endBalance": "EndingBalance\\s+([\\d,.]+\\d{2})"
         },
-        "transactionRegex": "^(\\d{2}/\\d{2})\\s+(.+?)\\s+([\\d,]+\\.\\d{2})$"
+        "transactionRegex": "^(\\d{1,2}\\/\\d{1,2})\\s+(.+?)\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?)$",
+        "mapping": {
+            "date": 1,
+            "description": 2,
+            "amount": 3
+        }
     },
     "farmers__merchants_bank_fm": {
         "name": "Farmers & Merchants Bank (F&M)",
@@ -78,9 +102,99 @@
         "fields": {
             "accountNumber": "AccountNumber\\s+(\\d{8,})",
             "period": "StatementDates\\s+([\\d/]+\\s*thru\\s*[\\d/]+)",
-            "startBalance": "BeginningBalance\\s+([0-9,]+\\.\\d{2})",
-            "endBalance": "EndingBalance\\s+([0-9,]+\\.\\d{2})"
+            "startBalance": "BeginningBalance\\s+([\\d,.]+\\d{2})",
+            "endBalance": "EndingBalance\\s+([\\d,.]+\\d{2})"
         },
-        "transactionRegex": "(\\d{1,2}\\/\\d{1,2})\\s+(.+?)\\s+(-?[0-9,]+\\.\\d{2})"
+        "transactionRegex": "(\\d{1,2}\\/\\d{1,2})\\s+(.+?)\\s+([-+]?\\$?[\\d,.]+(?:\\.\\d{2})?[-+]?)",
+        "mapping": {
+            "date": 1,
+            "description": 2,
+            "amount": 3
+        }
+    },
+    "chase_business": {
+        "name": "Chase Business",
+        "strategy": "regex_rows",
+        "identifiers": [
+            "JPMorgan Chase Bank",
+            "CHASE BUSINESS",
+            "TOTAL BUSINESS CHECKING"
+        ],
+        "fields": {
+            "accountNumber": "Account Number:\\s*(\\d{10,12})",
+            "period": "([A-Z][a-z]+ \\d{1,2}, \\d{4} to [A-Z][a-z]+ \\d{1,2}, \\d{4})",
+            "startBalance": "Beginning Balance\\s*\\$?([\\d,.]+\\d{2})",
+            "endBalance": "Ending Balance\\s*\\$?([\\d,.]+\\d{2})"
+        },
+        "transactionRegex": "^(\\d{2}/\\d{2})\\s+(.*?)\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?)\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?)$",
+        "mapping": {
+            "date": 1,
+            "description": 2,
+            "amount": 3,
+            "balance": 4
+        }
+    },
+    "bank_of_america_business": {
+        "name": "Bank of America Business",
+        "strategy": "regex_rows",
+        "identifiers": [
+            "Bank of America",
+            "Business Advantage",
+            "Preferred Rewards"
+        ],
+        "fields": {
+            "accountNumber": "Account number:\\s*(\\d{12})",
+            "period": "([A-Z][a-z]+ \\d{1,2}, \\d{4} through [A-Z][a-z]+ \\d{1,2}, \\d{4})",
+            "startBalance": "Beginning balance on [\\w\\s,]+:?\\s*\\$?([\\d,.]+\\d{2})",
+            "endBalance": "Ending balance on [\\w\\s,]+:?\\s*\\$?([\\d,.]+\\d{2})"
+        },
+        "transactionRegex": "^(\\d{2}/\\d{2}/\\d{2})\\s+(.*?)\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?)$",
+        "mapping": {
+            "date": 1,
+            "description": 2,
+            "amount": 3
+        }
+    },
+    "generic": {
+        "name": "Generic Parser",
+        "strategy": "regex_rows",
+        "identifiers": [],
+        "fields": {
+            "accountNumber": "(?:Account|Acct)(?:\\s+(?:Number|#))?:?\\s*(\\d{6,})",
+            "period": "(?:Period|Statement Dates):?\\s*([\\d/ -]+|[A-Z][a-z]{2}.*?20\\d{2})",
+            "startBalance": "(?:Starting|Beginning|Previous)\\s+Balance:?\\s*(?:\\$)?([\\d,.]+\\d{2})",
+            "endBalance": "(?:Ending|Closing|Current|New)\\s+Balance:?\\s*(?:\\$)?([\\d,.]+\\d{2})"
+        },
+        "transactionRegex": "(^\\d{1,2}[/-]\\d{1,2}(?:[/-]\\d{2,4})?)\\s+(.*?)\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?)(?:\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?))?$",
+        "mapping": {
+            "date": 1,
+            "description": 2,
+            "amount": 3,
+            "balance": 4
+        }
+    },
+    "teflons_trucking_llc": {
+        "name": "Teflon\u2019s Trucking LLC",
+        "strategy": "regex_rows",
+        "identifiers": [
+            "Teflon\u2019s Trucking LLC",
+            "Terron Sharp",
+            "Atlanta, GA"
+        ],
+        "fields": {
+            "accountNumber": "Account Number\\s+(\\d+)",
+            "period": "Statement Period\\s+(\\d+\\s+\\w+,\\s+\\d+\\s+-\\s+\\d+\\s+\\w+,\\s+\\d+)",
+            "startBalance": "Beginning balance on \\d+ \\w+, \\d+\\s+\\$([\\d,]+\\.\\d{2})",
+            "endBalance": "Ending balance on \\d+ \\w+, \\d+\\s+\\$([\\d,]+\\.\\d{2})"
+        },
+        "transactionRegex": "(\\d{2}/\\d{2}/\\d{4})\\s+(\\d+)\\s+([\\w\\s\\*\\.,&;'-]+)\\s+\\$(-?[\\d,]+\\.\\d{2})\\s+\\$([\\d,]+\\.\\d{2})",
+        "mapping": {
+            "date": 1,
+            "description": 3,
+            "amount": 4,
+            "creditAmount": null,
+            "debitAmount": null,
+            "balance": 5
+        }
     }
 }
