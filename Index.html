@@ -295,7 +295,7 @@
                     </div>
                     <button onclick="ai.generatePart('identity')"
                         class="w-full py-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-700 hover:text-brand-ai flex items-center px-2">1.
-                        Bank ID <i onclick="event.stopPropagation(); ui.showPromptModal('identity', this)"
+                        Account number <i onclick="event.stopPropagation(); ui.showPromptModal('identity', this)"
                             class="fa-solid fa-pencil ml-auto text-slate-400 hover:text-brand-accent"></i></button>
                     <button onclick="ai.generatePart('balances')"
                         class="w-full py-2 bg-white border border-slate-200 rounded text-xs font-bold text-slate-700 hover:text-brand-ai flex items-center px-2">2.
@@ -922,12 +922,25 @@
                             app.currentConfig = detectedBankTemplate;
                             document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
                             ui.notify(`Bank detected: ${detectedBankTemplate.name}`, "success");
-                            app.runParser(); // Auto-run
+
+                            // Use server-parsed data if available
+                            if (data.parsedData) {
+                                app.parsedData = data.parsedData;
+                                app.renderDashboard(data.parsedData);
+                            } else {
+                                app.runParser(); // Fallback to client-side
+                            }
                         } else {
                             app.currentConfig = DefaultConfigs.generic || null;
                             document.getElementById('config-editor').value = app.currentConfig ? JSON.stringify(app.currentConfig, null, 2) : '';
                             ui.notify("Bank not detected. Using generic parser.", "warning");
-                            app.runParser(); // Auto-run with generic
+
+                            if (data.parsedData) {
+                                app.parsedData = data.parsedData;
+                                app.renderDashboard(data.parsedData);
+                            } else {
+                                app.runParser(); // Fallback to client-side
+                            }
                         }
                     }
                 } catch (err) {
@@ -1003,10 +1016,19 @@
                 }
             },
 
-            runParser: () => {
+            runParser: async () => {
                 const textSnippet = document.getElementById('raw-input').value;
                 if (!textSnippet) return ui.notify("No text to parse", "warning");
+
+                // If it's a manual text parse (not a fresh PDF upload), we can still try to hit the server
+                // However, the current /parse endpoint expects a file. 
+                // For now, we'll keep the client-side Parser.execute as the primary for manual text edits 
+                // OR we could add a /parse_text endpoint to api.py.
+                // Let's stick to client-side fallback for manual edits for now to avoid breaking the flow,
+                // but we'll prioritize server results from handleFileUpload.
+
                 try {
+                    console.log("Running client-side parser fallback...");
                     const data = Parser.execute(textSnippet, app.currentConfig);
                     app.parsedData = data;
                     app.renderDashboard(data);
