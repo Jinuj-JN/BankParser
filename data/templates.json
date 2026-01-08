@@ -165,12 +165,14 @@
             "startBalance": "(?:Starting|Beginning|Previous)\\s+Balance:?\\s*(?:\\$)?([\\d,.]+\\d{2})",
             "endBalance": "(?:Ending|Closing|Current|New)\\s+Balance:?\\s*(?:\\$)?([\\d,.]+\\d{2})"
         },
-        "transactionRegex": "(^\\d{1,2}[/-]\\d{1,2}(?:[/-]\\d{2,4})?)\\s+(.*?)\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?)(?:\\s+([-+]?\\s?[\\$]?\\s*[-+]?\\s?[\\d,.]+(?:\\.\\d{2})?\\s*[-+]?))?$",
+        "transactionRegex": "(\\d{2}-\\d{2})\\s+([\\d,]+\\.\\d{2})\\s+([\\s\\S]+?)(?=\\d{2}-\\d{2}|$)",
         "mapping": {
             "date": 1,
-            "description": 2,
-            "amount": 3,
-            "balance": 4
+            "description": 3,
+            "amount": 2,
+            "credit": null,
+            "debit": null,
+            "balance": null
         }
     },
     "teflons_trucking_llc": {

@@ -465,14 +465,32 @@
                     <i class="fa-solid fa-times text-2xl"></i>
                 </button>
             </div>
-            <div class="flex-1 p-4 flex flex-col gap-2">
+            <div class="flex-1 p-4 flex flex-col gap-3">
+                <!-- Prompt Target Selector -->
+                <div id="prompt-target-selector" class="flex p-1 bg-slate-100 rounded-lg">
+                    <button id="target-global" onclick="ui.setPromptTarget('global')"
+                        class="flex-1 py-1.5 px-3 text-xs font-bold rounded-md transition-all bg-white shadow-sm text-brand-ai">
+                        Global Settings
+                    </button>
+                    <button id="target-bank" onclick="ui.setPromptTarget('bank')"
+                        class="flex-1 py-1.5 px-3 text-xs font-bold rounded-md transition-all text-slate-500 hover:text-slate-700">
+                        Bank Specific (<span id="target-bank-name">None</span>)
+                    </button>
+                </div>
+
                 <textarea id="ai-prompt-editor"
                     class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600"
                     spellcheck="false"></textarea>
-                <button onclick="ui.savePrompt()"
-                    class="bg-brand-ai hover:bg-violet-700 text-white py-2 rounded-lg text-sm font-bold transition-all">
-                    Save and Close
-                </button>
+                <div class="flex gap-2">
+                    <button id="optimize-prompt-btn" onclick="ui.optimizePrompt()"
+                        class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Optimize with AI
+                    </button>
+                    <button onclick="ui.savePrompt()"
+                        class="flex-[2] bg-brand-ai hover:bg-violet-700 text-white py-2 rounded-lg text-sm font-bold transition-all">
+                        Save and Close
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -547,46 +565,48 @@
 
                 // 1. Extract Fields via Regex
                 try {
-                    const fields = ['accountNumber', 'period', 'startBalance', 'endBalance'];
-                    fields.forEach(field => {
-                        if (config.fields[field]) {
-                            const m = text.match(new RegExp(config.fields[field]));
-                            if (m) {
-                                if (field.endsWith('Balance')) {
-                                    result.summary[field.replace('Balance', '')] = Parser.parseMoney(m[1]);
-                                } else if (field === 'totalCredits') {
-                                    result.summary.credits = Math.abs(Parser.parseMoney(m[1]));
-                                    result.summary.hasExtractedCredits = true;
-                                } else if (field === 'totalDebits') {
-                                    result.summary.debits = -Math.abs(Parser.parseMoney(m[1]));
-                                    result.summary.hasExtractedDebits = true;
-                                } else {
-                                    result[field] = m[1];
+                    if (config.fields) {
+                        const fieldKeys = ['accountNumber', 'period', 'startBalance', 'endBalance'];
+                        fieldKeys.forEach(field => {
+                            if (config.fields[field]) {
+                                const m = text.match(new RegExp(config.fields[field]));
+                                if (m) {
+                                    if (field.endsWith('Balance')) {
+                                        result.summary[field.replace('Balance', '')] = Parser.parseMoney(m[1]);
+                                    } else if (field === 'totalCredits') {
+                                        result.summary.credits = Math.abs(Parser.parseMoney(m[1]));
+                                        result.summary.hasExtractedCredits = true;
+                                    } else if (field === 'totalDebits') {
+                                        result.summary.debits = -Math.abs(Parser.parseMoney(m[1]));
+                                        result.summary.hasExtractedDebits = true;
+                                    } else {
+                                        result[field] = m[1];
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
 
-                    // Customer extraction
-                    if (config.fields.customerStart && config.fields.customerEnd) {
-                        const s = text.indexOf(config.fields.customerStart);
-                        const e = text.indexOf(config.fields.customerEnd);
-                        if (s > -1 && e > s) {
-                            const block = text.substring(s + config.fields.customerStart.length, e).trim();
-                            const lines = block.split('\n').filter(l => l.trim());
-                            result.customer.name = lines[0] || "Unknown";
-                            result.customer.address = lines.slice(1).join(', ');
+                        // Customer extraction
+                        if (config.fields.customerStart && config.fields.customerEnd) {
+                            const s = text.indexOf(config.fields.customerStart);
+                            const e = text.indexOf(config.fields.customerEnd);
+                            if (s > -1 && e > s) {
+                                const block = text.substring(s + config.fields.customerStart.length, e).trim();
+                                const lines = block.split('\n').filter(l => l.trim());
+                                result.customer.name = lines[0] || "Unknown";
+                                result.customer.address = lines.slice(1).join(', ');
+                            }
                         }
                     }
                 } catch (e) { console.error("Field extraction error", e); }
 
+                // 2. UNIVERSAL TRANSACTION EXTRACTION
                 const year = Parser.inferYear(result.period);
+                const datePattern = config.datePattern || "(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})";
+                const dateRegex = new RegExp(datePattern, 'g');
 
-                // 2. Extract Transactions based on Strategy
-                if (config.strategy === 'row_reconstructor') {
-                    // Generic block-based analysis
-                    const datePattern = config.datePattern || "(\\d{1,2}/\\d{1,2}/\\d{4})";
-                    const dateRegex = new RegExp(datePattern, 'g');
+                // If strategy is row_reconstructor or no strict regex is provided, use block-based heuristic
+                if (config.strategy === 'row_reconstructor' || (!config.transactionRegex && !config.fieldPatterns)) {
                     let match;
                     const indices = [];
                     while ((match = dateRegex.exec(text)) !== null) indices.push({ index: match.index, date: match[1] });
@@ -596,116 +616,87 @@
                         const next = indices[i + 1];
                         const endMarker = config.endMarker || "Ending Balance";
                         const endIdx = next ? next.index : text.indexOf(endMarker, current.index);
-                        if (endIdx === -1) continue;
+                        if (endIdx === -1 || (endIdx - current.index > 5000)) continue; // Guard against crazy long blocks
 
                         const block = text.substring(current.index, endIdx);
-
-                        // Improved tokenization: handle quoted OR space-separated
                         let tokens = [];
                         if (block.includes('"')) {
-                            tokens = [...block.matchAll(/"([^"]*)"/g)].map(m => ({
-                                val: m[1],
-                                idx: m.index,
-                                full: m[0]
-                            }));
+                            tokens = [...block.matchAll(/"([^"]*)"/g)].map(m => ({ val: m[1], idx: m.index, full: m[0] }));
                         } else {
-                            // Fallback for plain text: split by 2+ spaces, tabs, or newlines
                             const partRegex = /([^\s]{2,}(?:\s[^\s]{2,})*)/g;
                             let m;
                             while ((m = partRegex.exec(block)) !== null) {
-                                tokens.push({
-                                    val: m[1].trim(),
-                                    idx: m.index,
-                                    full: m[1]
-                                });
+                                tokens.push({ val: m[1].trim(), idx: m.index, full: m[1] });
                             }
                         }
 
                         if (tokens.length >= 2) {
                             let desc = tokens[1].val.replace(/[\r\n]+/g, ' ').trim();
-                            let amount = 0, type = 'debit', balance = 0, checkNum = "";
+                            let amount = 0, type = 'debit', balance = 0;
 
-                            const moneyTokens = tokens.slice(2).filter(t => {
-                                const val = t.val.trim();
-                                // Robust money pattern: allow signs, currency, parentheses, but MUST contain digits
-                                return /^[\$\-+\s"']*\(?[\d,.]+\)?[\-+\$\s"']*$/.test(val) && /[0-9]/.test(val);
-                            });
+                            const moneyTokens = tokens.slice(2).filter(t => /^[\$\-+\s"']*\(?[\d,.]+\)?[\-+\$\s"']*$/.test(t.val.trim()) && /[0-9]/.test(t.val.trim()));
                             if (moneyTokens.length > 0) {
                                 let amtVal = Parser.parseMoney(moneyTokens[0].val);
-
-                                // Type detection by gap analysis
-                                const gapStart = tokens[1].idx + tokens[1].full.length;
-                                const gapEnd = moneyTokens[0].idx;
-                                const gap = block.substring(gapStart, gapEnd);
-
+                                const gap = block.substring(tokens[1].idx + tokens[1].full.length, moneyTokens[0].idx);
                                 if (config.creditIndicator && gap.toLowerCase().includes(config.creditIndicator.toLowerCase())) {
-                                    type = 'credit';
-                                    amount = Math.abs(amtVal);
-                                } else if (config.debitIndicator && gap.toLowerCase().includes(config.debitIndicator.toLowerCase())) {
-                                    type = 'debit';
-                                    amount = -Math.abs(amtVal);
+                                    type = 'credit'; amount = Math.abs(amtVal);
+                                } else if (gap.includes(',,') || gap.includes(', ,') || gap.length > 15) {
+                                    type = 'credit'; amount = Math.abs(amtVal);
                                 } else {
-                                    // Fallback to gap analysis: long gaps often imply a second column (Credit)
-                                    // If gap is large, we check for double commas (CSV structure) or many spaces
-                                    if (gap.includes(',,') || gap.includes(', ,') || gap.length > 15) {
-                                        type = 'credit'; // Heuristic: Credits are often further right
-                                        amount = Math.abs(amtVal);
-                                    } else {
-                                        type = 'debit';
-                                        amount = -Math.abs(amtVal);
-                                    }
+                                    type = 'debit'; amount = -Math.abs(amtVal);
                                 }
-
                                 if (moneyTokens.length > 1) balance = Parser.parseMoney(moneyTokens[1].val);
                             }
-                            result.transactions.push({ date: current.date, description: desc, amount, type, balance, checkNumber: checkNum });
+                            result.transactions.push({ date: current.date, description: desc, amount, type, balance });
                         }
                     }
-                } else if (config.strategy === 'regex_rows') {
-                    console.log(`Using regex_rows with pattern: ${config.transactionRegex}`);
-                    const regex = new RegExp(config.transactionRegex, 'gm');
+                } else if (config.transactionRegex || config.fieldPatterns) {
+                    // Unified Regex Strategy (Strict or Fuzzy)
+                    const lines = text.split('\n');
                     const mapping = config.mapping || { date: 1, description: 2, amount: 3, balance: null };
-                    let match;
-                    let matchCount = 0;
-                    while ((match = regex.exec(text)) !== null) {
-                        matchCount++;
-                        console.log(`Match ${matchCount}:`, match);
-                        const rawDate = match[mapping.date];
-                        const date = rawDate.includes('/') && rawDate.split('/').length < 3 ? `${rawDate}/${year}` : rawDate;
 
-                        let amt = 0;
-                        let type = 'debit';
+                    lines.forEach(line => {
+                        if (!line.trim()) return;
 
-                        if (mapping.creditAmount && mapping.debitAmount) {
-                            // Two-column format
-                            const cred = Parser.parseMoney(match[mapping.creditAmount]);
-                            const deb = Parser.parseMoney(match[mapping.debitAmount]);
-                            if (cred !== 0) { amt = cred; type = 'credit'; }
-                            else if (deb !== 0) { amt = -Math.abs(deb); type = 'debit'; }
-                        } else {
-                            // Single column format
-                            amt = Parser.parseMoney(match[mapping.amount]);
-                            if (config.forceDebit) amt = -Math.abs(amt);
-                            else if (config.forceCredit) amt = Math.abs(amt);
-                            else if (config.signGroup && match[config.signGroup]) {
-                                const sig = match[config.signGroup].trim().toLowerCase();
-                                if (sig === '-' || sig.includes('debit') || sig.includes('dr') || sig.includes('withdrawal')) amt = -Math.abs(amt);
-                                else if (sig === '+' || sig.includes('credit') || sig.includes('cr') || sig.includes('deposit')) amt = Math.abs(amt);
-                            }
-                            type = amt >= 0 ? 'credit' : 'debit';
+                        let match = null;
+                        const tReg = config.transactionRegex || config.fieldPatterns;
+
+                        if (typeof tReg === 'string') {
+                            match = line.match(new RegExp(tReg));
                         }
 
-                        const bal = mapping.balance ? Parser.parseMoney(match[mapping.balance]) : 0;
+                        if (match) {
+                            const rawDate = match[mapping.date];
+                            const date = (rawDate && rawDate.includes('/') && rawDate.split('/').length < 3) ? `${rawDate}/${year}` : rawDate;
+                            let amt = 0, type = 'debit', bal = 0;
 
-                        result.transactions.push({
-                            date: date,
-                            description: match[mapping.description].replace(/[\r\n]+/g, ' ').trim(),
-                            amount: amt,
-                            type: type,
-                            balance: bal,
-                            checkNumber: ""
-                        });
-                    }
+                            if (mapping.creditAmount && mapping.debitAmount) {
+                                const cred = Parser.parseMoney(match[mapping.creditAmount]);
+                                const deb = Parser.parseMoney(match[mapping.debitAmount]);
+                                if (cred !== 0) { amt = cred; type = 'credit'; }
+                                else if (deb !== 0) { amt = -Math.abs(deb); type = 'debit'; }
+                            } else {
+                                amt = Parser.parseMoney(match[mapping.amount]);
+                                if (config.forceDebit) amt = -Math.abs(amt);
+                                else if (config.forceCredit) amt = Math.abs(amt);
+                                type = amt >= 0 ? 'credit' : 'debit';
+                            }
+                            bal = mapping.balance ? Parser.parseMoney(match[mapping.balance]) : 0;
+                            result.transactions.push({ date, description: match[mapping.description]?.replace(/[\r\n]+/g, ' ').trim() || "N/A", amount: amt, type, balance: bal });
+                        } else if (typeof tReg === 'object' && tReg !== null) {
+                            // Fuzzy Component Matching (Object-based)
+                            const fDate = line.match(new RegExp(tReg.date || tReg.Date))?.[0];
+                            const fAmt = line.match(new RegExp(tReg.amount || tReg.Amount || tReg.debit || tReg.credit))?.[0];
+                            if (fDate && fAmt) {
+                                const date = fDate.includes('/') && fDate.split('/').length < 3 ? `${fDate}/${year}` : fDate;
+                                const amt = Parser.parseMoney(fAmt);
+                                const fBal = line.match(new RegExp(tReg.balance || tReg.Balance))?.[0] || "0";
+                                // Description is usually what's left
+                                let desc = line.replace(fDate, '').replace(fAmt, '').replace(fBal, '').trim();
+                                result.transactions.push({ date, description: desc, amount: amt, type: amt >= 0 ? 'credit' : 'debit', balance: Parser.parseMoney(fBal) });
+                            }
+                        }
+                    });
                 }
 
                 // Calc totals if not already extracted
@@ -1175,7 +1166,12 @@
                 const snippetLengths = { identity: 1000, balances: 2000, transactions: 3000, full: 4000 };
                 const snippet = raw.substring(0, snippetLengths[part] || 4000);
 
-                if (app.aiPrompts[part]) {
+                // Check for Template-specific override in app.aiPrompts.overrides
+                const bankName = currentConfig.name;
+                if (bankName && app.aiPrompts.overrides && app.aiPrompts.overrides[bankName] && app.aiPrompts.overrides[bankName][part]) {
+                    console.log(`Using template-specific prompt for ${part} (${bankName})`);
+                    prompt = app.aiPrompts.overrides[bankName][part].replaceAll('{TEXT_SNIPPET}', snippet);
+                } else if (app.aiPrompts[part]) {
                     prompt = app.aiPrompts[part].replaceAll('{TEXT_SNIPPET}', snippet);
                 } else {
                     console.warn(`Prompt for ${part} is empty or missing. using hardcoded fallback.`);
@@ -1188,16 +1184,11 @@
                 const response = await ai.call(prompt);
                 if (response.startsWith("AI Error") || response === "API Key Missing") return;
 
-                // Robust JSON Extraction: Find the start and end of the JSON block
-                let jsonText = response;
-                const startIdx = response.indexOf('{');
-                const endIdx = response.lastIndexOf('}');
-
-                if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-                    jsonText = response.substring(startIdx, endIdx + 1);
-                } else {
-                    // Fallback to simpler cleaning if braces aren't found
-                    jsonText = response.replace(/```json|```/g, '').trim();
+                const jsonText = ui.extractJson(response);
+                if (!jsonText) {
+                    ui.notify("AI did not return valid JSON. Try again.", "error");
+                    status.classList.add('hidden');
+                    return;
                 }
 
                 try {
@@ -1226,6 +1217,35 @@
         };
 
         const ui = {
+            currentEditingPrompt: null,
+            currentPromptTarget: 'global', // 'global' or 'bank'
+
+            setPromptTarget: (target) => {
+                ui.currentPromptTarget = target;
+
+                const globalBtn = document.getElementById('target-global');
+                const bankBtn = document.getElementById('target-bank');
+
+                if (target === 'global') {
+                    globalBtn.className = "flex-1 py-1.5 px-3 text-xs font-bold rounded-md transition-all bg-white shadow-sm text-brand-ai";
+                    bankBtn.className = "flex-1 py-1.5 px-3 text-xs font-bold rounded-md transition-all text-slate-500 hover:text-slate-700";
+
+                    // Load global prompt text
+                    document.getElementById('ai-prompt-editor').value = app.aiPrompts[ui.currentEditingPrompt] || "";
+                } else {
+                    bankBtn.className = "flex-1 py-1.5 px-3 text-xs font-bold rounded-md transition-all bg-white shadow-sm text-brand-ai";
+                    globalBtn.className = "flex-1 py-1.5 px-3 text-xs font-bold rounded-md transition-all text-slate-500 hover:text-slate-700";
+
+                    // Load bank override if exists, else load global as base
+                    let config = {};
+                    try { config = JSON.parse(document.getElementById('config-editor').value); } catch (e) { }
+                    const bankName = config.name;
+                    const override = (bankName && app.aiPrompts.overrides && app.aiPrompts.overrides[bankName]) ? app.aiPrompts.overrides[bankName][ui.currentEditingPrompt] : null;
+
+                    document.getElementById('ai-prompt-editor').value = override || app.aiPrompts[ui.currentEditingPrompt] || "";
+                }
+            },
+
             setTab: (tab) => {
                 document.getElementById('view-upload').classList.add('hidden');
                 document.getElementById('view-config').classList.add('hidden');
@@ -1235,40 +1255,32 @@
                 document.getElementById(`view-${tab}`).classList.remove('hidden');
                 document.getElementById(`tab-${tab}`).classList.add('text-brand-ai', 'border-b-2', 'border-brand-ai');
             },
-            currentEditingPrompt: null,
             showPromptModal: (part, buttonElement) => {
                 ui.currentEditingPrompt = part;
 
-                // Load the specific prompt from the JSON file on demand
-                fetch('data/prompts.json')
-                    .then(response => response.json())
-                    .then(prompts => {
-                        if (prompts && prompts[part]) {
-                            Object.assign(app.aiPrompts, prompts); // Merge instead of replace
-                            document.getElementById('ai-prompt-editor').value = prompts[part];
-                        } else {
-                            // Fallback to whatever is in memory if the file is incomplete
-                            document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
-                        }
-                        const btn = buttonElement.closest('button');
-                        const btnClone = btn.cloneNode(true);
-                        btnClone.querySelectorAll('i').forEach(i => i.remove());
-                        const buttonText = btnClone.innerText.trim();
-                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${buttonText}`;
-                        document.getElementById('ai-prompt-modal').classList.remove('hidden');
-                    })
-                    .catch(error => {
-                        console.error('Error loading prompts.json for modal:', error);
-                        // Fallback to in-memory prompt on error
-                        document.getElementById('ai-prompt-editor').value = app.aiPrompts[part] || "";
-                        const btn = buttonElement.closest('button');
-                        const btnClone = btn.cloneNode(true);
-                        btnClone.querySelectorAll('i').forEach(i => i.remove());
-                        const buttonText = btnClone.innerText.trim();
-                        document.getElementById('ai-prompt-modal-title').innerText = `Edit Prompt: ${buttonText}`;
-                        document.getElementById('ai-prompt-modal').classList.remove('hidden');
-                        ui.notify('Could not load latest prompts from server. Displaying cached version.', 'warning');
-                    });
+                let config = {};
+                try { config = JSON.parse(document.getElementById('config-editor').value); } catch (e) { }
+                const bankName = config.name || "Unknown Bank";
+
+                document.getElementById('target-bank-name').innerText = bankName;
+
+                // Determine initial target based on existence of override
+                const hasOverride = bankName !== "Unknown Bank" &&
+                    app.aiPrompts.overrides &&
+                    app.aiPrompts.overrides[bankName] &&
+                    app.aiPrompts.overrides[bankName][part];
+
+                ui.setPromptTarget(hasOverride ? 'bank' : 'global');
+
+                const btn = buttonElement.closest('button');
+                const btnClone = btn.cloneNode(true);
+                btnClone.querySelectorAll('i').forEach(i => i.remove());
+                const buttonText = btnClone.innerText.trim();
+
+                const titleEl = document.getElementById('ai-prompt-modal-title');
+                titleEl.innerText = `Edit Prompt: ${buttonText}`;
+
+                document.getElementById('ai-prompt-modal').classList.remove('hidden');
             },
             hidePromptModal: () => {
                 document.getElementById('ai-prompt-modal').classList.add('hidden');
@@ -1277,9 +1289,53 @@
             savePrompt: async () => {
                 if (ui.currentEditingPrompt) {
                     const newPrompt = document.getElementById('ai-prompt-editor').value;
-                    app.aiPrompts[ui.currentEditingPrompt] = newPrompt;
+
+                    let config = {};
+                    try { config = JSON.parse(document.getElementById('config-editor').value); } catch (e) { }
+                    const bankName = config.name;
+
+                    if (ui.currentPromptTarget === 'bank') {
+                        if (!bankName || bankName === "Unknown Bank") {
+                            ui.notify("Cannot save bank-specific prompt without a bank name in config.", "warning");
+                            return;
+                        }
+                        if (!app.aiPrompts.overrides) app.aiPrompts.overrides = {};
+                        if (!app.aiPrompts.overrides[bankName]) app.aiPrompts.overrides[bankName] = {};
+                        app.aiPrompts.overrides[bankName][ui.currentEditingPrompt] = newPrompt;
+                        ui.notify(`Saved as custom prompt for ${bankName}`, "success");
+                    } else {
+                        // Global prompt update
+                        app.aiPrompts[ui.currentEditingPrompt] = newPrompt;
+                        ui.notify("Saved as global prompt", "success");
+                    }
+
                     await ui.savePromptsToFile();
                     ui.hidePromptModal();
+                }
+            },
+            optimizePrompt: async () => {
+                if (!ai._validate()) return;
+                const raw = document.getElementById('raw-input').value;
+                if (!raw) return ui.notify("No text available. Upload a PDF first.", "warning");
+
+                const btn = document.getElementById('optimize-prompt-btn');
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Optimizing...';
+
+                try {
+                    const metaPrompt = app.aiPrompts.prompt_optimizer.replace('{TEXT_SNIPPET}', raw.substring(0, 5000));
+                    const optimizedPrompt = await ai.call(metaPrompt);
+                    if (optimizedPrompt) {
+                        document.getElementById('ai-prompt-editor').value = optimizedPrompt;
+                        ui.notify("Prompt optimized based on current document!", "success");
+                    }
+                } catch (e) {
+                    console.error("Optimization Error:", e);
+                    ui.notify("Optimization failed: " + e.message, "error");
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
                 }
             },
             savePromptsToFile: async () => {
@@ -1403,6 +1459,33 @@
                     icon.classList.remove('fa-eye-slash');
                     icon.classList.add('fa-eye');
                 }
+            },
+            extractJson: (text) => {
+                const startIdx = text.indexOf('{');
+                if (startIdx === -1) return null;
+
+                let braceCount = 0;
+                let inString = false;
+                let lastChar = '';
+
+                for (let i = startIdx; i < text.length; i++) {
+                    const char = text[i];
+
+                    if (char === '"' && lastChar !== '\\') {
+                        inString = !inString;
+                    }
+
+                    if (!inString) {
+                        if (char === '{') braceCount++;
+                        if (char === '}') braceCount--;
+
+                        if (braceCount === 0) {
+                            return text.substring(startIdx, i + 1);
+                        }
+                    }
+                    lastChar = char;
+                }
+                return null;
             }
         };
 
