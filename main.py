@@ -3,21 +3,23 @@ import pdfplumber
 import argparse
 import os
 import json
-
-
-def parse_pdf(file_path):
+from docling.document_converter import DocumentConverter
+def parse_pdf(file_path,    isdocling=False):
     """Extract text from `file_path`, run the ParserFactory and return
     (parsed_dict | None, full_text).
     """
     full_text = ""
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text(layout=True) or ""
-            full_text += text + "\n"
-
-    
-
-    return full_text
+    if isdocling==True:
+        converter = DocumentConverter()
+        result = converter.convert(file_path)
+        full_text = result.document.export_to_markdown()
+        return full_text
+    else:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text(layout=True) or ""
+                full_text+= text + "\n"
+                return full_text
 
 
 if __name__ == "__main__":

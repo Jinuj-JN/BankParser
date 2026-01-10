@@ -229,16 +229,22 @@
                 <div class="flex-1 flex flex-col">
                     <label class="text-xs font-bold text-slate-400 uppercase mb-2 flex justify-between">
                         <span>Extracted Text</span>
-                        <div class="flex gap-2 items-center">
-                            <span id="text-status" class="text-orange-500 hidden mr-2"><i
-                                    class="fa-solid fa-spinner fa-spin"></i></span>
-                            <button onclick="app.loadSample('chase')" class="hover:text-brand-ai"
-                                title="Chase Sample">CH</button>
-                            <button onclick="app.loadSample('boa')" class="hover:text-brand-ai"
-                                title="BoA Sample">BA</button>
-                            <button onclick="app.loadSample('lili')" class="hover:text-brand-ai"
-                                title="Lili Sample">LI</button>
-                        </div>
+                 <div class="flex gap-2 items-center">
+  <span id="text-status" class="text-orange-500 hidden mr-2">
+    <i class="fa-solid fa-spinner fa-spin"></i>
+  </span>
+
+  <!-- Radio Button Group -->
+  <label class="flex items-center space-x-1 cursor-pointer">
+    <input type="radio" name="displayType" value="docling" class="form-radio h-4 w-4 text-brand-ai">
+    <span>Docling</span>
+  </label>
+  
+  <label class="flex items-center space-x-1 cursor-pointer">
+    <input type="radio" name="displayType" value="normal" class="form-radio h-4 w-4 text-brand-ai" checked>
+    <span>Normal</span>
+  </label>
+</div>
                     </label>
                     <textarea id="raw-input"
                         class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600"
@@ -860,7 +866,11 @@
                     app.clearFile();
                     return;
                 }
-
+   // 1. Get the selected radio button value
+    const selectedMode = document.querySelector('input[name="displayType"]:checked').value;
+    
+    // 2. Set your boolean parameter based on the value
+    const isdocling = (selectedMode === 'docling');
                 // Revoke previous PDF object URL
                 if (app.currentPdfUrl) {
                     URL.revokeObjectURL(app.currentPdfUrl);
@@ -891,7 +901,7 @@
                 resultEl.value = 'Processing...';
 
                 // Prepare the upload using FormData
-                const url = 'http://127.0.0.1:5000/parse'; //
+                const url = isdocling?'http://127.0.0.1:5000/parse1':'http://127.0.0.1:5000/parse';
                 const form = new FormData();
                 form.append('file', file, file.name); //
 
@@ -1029,7 +1039,7 @@
 
                 try {
                     console.log("Running client-side parser fallback...");
-                    const data = Parser.execute(textSnippet, app.currentConfig);
+                    const data = Parser.execute(textSnippet, app.currentConfig);                    
                     app.parsedData = data;
                     app.renderDashboard(data);
                 } catch (e) {

@@ -44,6 +44,7 @@ def detect_bank(text):
     return None
 
 @app.route('/parse', methods=['POST'])
+@app.route('/parse1', methods=['POST'])
 def parse_endpoint():
     if 'file' not in request.files:
         return jsonify({'error': 'No file part in the request; include form field "file"'}), 400
@@ -58,7 +59,7 @@ def parse_endpoint():
         tmp_path = tmp.name
 
     try:
-        full_text = parse_pdf(tmp_path)
+        full_text = parse_pdf(tmp_path,True if request.path == '/parse1' else False)
         detected_bank_key = detect_bank(full_text)
         
         # Load templates to get the detected bank's template
