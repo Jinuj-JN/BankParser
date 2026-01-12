@@ -1,3 +1,5 @@
 pdfplumber
 Flask
 Flask-Cors
+requests
+docling

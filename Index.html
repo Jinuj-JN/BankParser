@@ -229,22 +229,24 @@
                 <div class="flex-1 flex flex-col">
                     <label class="text-xs font-bold text-slate-400 uppercase mb-2 flex justify-between">
                         <span>Extracted Text</span>
-                 <div class="flex gap-2 items-center">
-  <span id="text-status" class="text-orange-500 hidden mr-2">
-    <i class="fa-solid fa-spinner fa-spin"></i>
-  </span>
+                        <div class="flex gap-2 items-center">
+                            <span id="text-status" class="text-orange-500 hidden mr-2">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                            </span>
 
-  <!-- Radio Button Group -->
-  <label class="flex items-center space-x-1 cursor-pointer">
-    <input type="radio" name="displayType" value="docling" class="form-radio h-4 w-4 text-brand-ai">
-    <span>Docling</span>
-  </label>
-  
-  <label class="flex items-center space-x-1 cursor-pointer">
-    <input type="radio" name="displayType" value="normal" class="form-radio h-4 w-4 text-brand-ai" checked>
-    <span>Normal</span>
-  </label>
-</div>
+                            <!-- Radio Button Group -->
+                            <label class="flex items-center space-x-1 cursor-pointer">
+                                <input type="radio" name="displayType" value="docling"
+                                    class="form-radio h-4 w-4 text-brand-ai">
+                                <span>Docling</span>
+                            </label>
+
+                            <label class="flex items-center space-x-1 cursor-pointer">
+                                <input type="radio" name="displayType" value="normal"
+                                    class="form-radio h-4 w-4 text-brand-ai" checked>
+                                <span>Normal</span>
+                            </label>
+                        </div>
                     </label>
                     <textarea id="raw-input"
                         class="flex-1 w-full p-3 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-ai outline-none resize-none text-slate-600"
@@ -269,6 +271,7 @@
                                 class="w-full mt-1 p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none">
                                 <option value="gemini">Gemini</option>
                                 <option value="openai">OpenAI</option>
+                                <option value="anthropic">Anthropic</option>
                             </select>
                         </div>
                         <div>
@@ -795,6 +798,13 @@
                         { val: 'gpt-4o-mini', label: 'GPT-4o Mini' },
                         { val: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
                         { val: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+                    ],
+                    anthropic: [
+                        { val: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+                        { val: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+                        { val: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+                        { val: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+                        { val: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
                     ]
                 };
 
@@ -866,11 +876,11 @@
                     app.clearFile();
                     return;
                 }
-   // 1. Get the selected radio button value
-    const selectedMode = document.querySelector('input[name="displayType"]:checked').value;
-    
-    // 2. Set your boolean parameter based on the value
-    const isdocling = (selectedMode === 'docling');
+                // 1. Get the selected radio button value
+                const selectedMode = document.querySelector('input[name="displayType"]:checked').value;
+
+                // 2. Set your boolean parameter based on the value
+                const isdocling = (selectedMode === 'docling');
                 // Revoke previous PDF object URL
                 if (app.currentPdfUrl) {
                     URL.revokeObjectURL(app.currentPdfUrl);
@@ -901,7 +911,7 @@
                 resultEl.value = 'Processing...';
 
                 // Prepare the upload using FormData
-                const url = isdocling?'http://127.0.0.1:5000/parse1':'http://127.0.0.1:5000/parse';
+                const url = isdocling ? 'http://127.0.0.1:5000/parse1' : 'http://127.0.0.1:5000/parse';
                 const form = new FormData();
                 form.append('file', file, file.name); //
 
@@ -1039,7 +1049,7 @@
 
                 try {
                     console.log("Running client-side parser fallback...");
-                    const data = Parser.execute(textSnippet, app.currentConfig);                    
+                    const data = Parser.execute(textSnippet, app.currentConfig);
                     app.parsedData = data;
                     app.renderDashboard(data);
                 } catch (e) {
@@ -1135,46 +1145,23 @@
             },
 
             call: async (prompt) => {
-                let url, headers, body;
-
-                if (app.aiPlatform === 'openai') {
-                    url = 'https://api.openai.com/v1/chat/completions';
-                    headers = {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${app.apiKey}`
-                    };
-                    body = JSON.stringify({
-                        model: app.aiModel || "gpt-4o",
-                        messages: [{ role: "user", content: prompt }],
-                        temperature: 0.1
-                    });
-                } else { // Default to Gemini
-                    // Gemini URL structure might vary by model version so we handle experimental vs standard
-                    // Standard: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
-                    const modelName = app.aiModel || 'gemini-2.0-flash-exp';
-                    url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${app.apiKey}`;
-
-                    headers = { 'Content-Type': 'application/json' };
-                    body = JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.1 }
-                    });
-                }
+                const url = 'http://127.0.0.1:5000/ai/call';
+                const headers = { 'Content-Type': 'application/json' };
+                const body = JSON.stringify({
+                    platform: app.aiPlatform,
+                    model: app.aiModel,
+                    apiKey: app.apiKey,
+                    prompt: prompt
+                });
 
                 try {
                     const res = await fetch(url, { method: 'POST', headers: headers, body: body });
-                    if (!res.ok) {
-                        const errorData = await res.json();
-                        console.error("AI API Error:", errorData);
-                        throw new Error(`API request failed with status ${res.status}: ${errorData.error?.message || 'Unknown error'}`);
-                    }
                     const data = await res.json();
-
-                    if (app.aiPlatform === 'openai') {
-                        return data.choices[0].message.content;
-                    } else {
-                        return data.candidates[0].content.parts[0].text;
+                    if (!res.ok) {
+                        const errorMsg = data.status_code ? `(${data.status_code}) ${data.error}` : data.error;
+                        throw new Error(errorMsg || 'Unknown error');
                     }
+                    return data.content;
                 } catch (e) {
                     console.error(e);
                     ui.notify(`AI Request Failed: ${e.message}`, "error");

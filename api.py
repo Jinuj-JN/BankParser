@@ -111,6 +111,95 @@ def save_prompts():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/ai/call', methods=['POST'])
+def ai_call():
+    import requests
+    try:
+        data = request.get_json()
+        platform = data.get('platform')
+        model = data.get('model')
+        api_key = data.get('apiKey')
+        prompt = data.get('prompt')
+
+        if not all([platform, api_key, prompt]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        if platform == 'openai':
+            print(f"Proxying request to OpenAI: {model}")
+            url = 'https://api.openai.com/v1/chat/completions'
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {api_key}'
+            }
+            body = {
+                'model': model or "gpt-4o",
+                'messages': [{'role': 'user', 'content': prompt}],
+                'temperature': 0.1
+            }
+            response = requests.post(url, headers=headers, json=body)
+            if not response.ok:
+                print(f"OpenAI Error: {response.status_code} - {response.text}")
+            response.raise_for_status()
+            ai_data = response.json()
+            return jsonify({'content': ai_data['choices'][0]['message']['content']})
+
+        elif platform == 'anthropic':
+            print(f"Proxying request to Anthropic: {model}")
+            url = 'https://api.anthropic.com/v1/messages'
+            headers = {
+                'Content-Type': 'application/json',
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01'
+            }
+            body = {
+                'model': model or "claude-3-5-sonnet-20241022",
+                'max_tokens': 4096,
+                'messages': [{'role': 'user', 'content': prompt}],
+                'temperature': 0.1
+            }
+            response = requests.post(url, headers=headers, json=body)
+            if not response.ok:
+                print(f"Anthropic Error: {response.status_code} - {response.text}")
+            response.raise_for_status()
+            ai_data = response.json()
+            return jsonify({'content': ai_data['content'][0]['text']})
+
+        else: # Default to Gemini
+            model_name = model or 'gemini-2.0-flash-exp'
+            print(f"Proxying request to Gemini: {model_name}")
+            url = f'https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}'
+            headers = {'Content-Type': 'application/json'}
+            body = {
+                'contents': [{'parts': [{'text': prompt}]}],
+                'generationConfig': {'temperature': 0.1}
+            }
+            response = requests.post(url, headers=headers, json=body)
+            if not response.ok:
+                print(f"Gemini Error: {response.status_code} - {response.text}")
+            response.raise_for_status()
+            ai_data = response.json()
+            return jsonify({'content': ai_data['candidates'][0]['content']['parts'][0]['text']})
+
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code
+        error_msg = str(e)
+        try:
+            error_data = e.response.json()
+            print(f"Server-side AI Cache Error Body: {json.dumps(error_data, indent=2)}")
+            # Try to get the recursive error message from different AI providers
+            if 'error' in error_data:
+                if isinstance(error_data['error'], dict):
+                    error_msg = error_data['error'].get('message', str(e))
+                else:
+                    error_msg = error_data['error']
+            elif 'message' in error_data:
+                error_msg = error_data['message']
+        except:
+            pass
+        return jsonify({"error": error_msg, "status_code": status_code}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     # For local development only; use a proper WSGI server in production.
     app.run(host='0.0.0.0', port=5000, debug=True)
