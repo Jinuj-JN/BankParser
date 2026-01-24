@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
+from transaction_parser import parse_bank_statement_with_row,parse_bank_statement_with_sections
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import tempfile
 import os
@@ -203,11 +205,12 @@ def ai_call():
 def parse_transactions_endpoint():
     data = request.get_json()
     statement_text = data.get('text', '')
-    regex = data.get('regexPattern', '')
-    print(f"Received regex pattern: {regex}")
-    #print(f"Statement text length: {statement_text}")
-    #txns = parse_bank_statement_with_row(statement_text, regex_pattern=regex if regex else None)
-    return jsonify({'transactions': "txns"})
+    regex = data.get('regex_pattern', '')
+    if regex["regex_transaction_type"] == "row":
+        txns = parse_bank_statement_with_row(statement_text, regex_config=regex if regex else None)
+    else:
+        txns= parse_bank_statement_with_sections(statement_text, regex_config=regex if regex else None)
+    return jsonify({'result': txns})
 
 if __name__ == '__main__':
     # For local development only; use a proper WSGI server in production.

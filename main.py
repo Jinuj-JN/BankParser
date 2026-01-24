@@ -19,7 +19,7 @@ def parse_pdf(file_path,    isdocling=False):
             for page in pdf.pages:
                 text = page.extract_text(layout=True) or ""
                 full_text+= text + "\n"
-                return full_text
+            return full_text
 
 
 if __name__ == "__main__":

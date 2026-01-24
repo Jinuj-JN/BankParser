@@ -262,7 +262,7 @@
             <!-- Tab: Config -->
             <div id="view-config" class="hidden flex-1 flex flex-col p-4 gap-4 h-full overflow-y-auto">
                 <!-- AI Provider Config -->
-                <div class="border-b border-slate-200 pb-4">
+                <div class="border-b border-slate-200 pb-4 hidden">
                     <label class="text-xs font-bold text-slate-500 uppercase">AI Settings</label>
                     <div class="mt-2 flex flex-col gap-2">
                         <div>
@@ -296,7 +296,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 gap-2 mb-2">
+                <div class="grid grid-cols-1 gap-2 mb-2 hidden">
                     <div class="flex justify-between items-center mb-1">
                         <label class="text-xs font-bold text-slate-500 uppercase">Generators</label>
                         <span id="ai-status"
@@ -451,8 +451,8 @@
                                 <tr>
                                     <th class="p-2 bg-slate-50">Date</th>
                                     <th class="p-2 bg-slate-50">Desc</th>
+                                    <th class="p-2 bg-slate-50">Type</th>
                                     <th class="p-2 bg-slate-50 text-right">Amt</th>
-                                    <th class="p-2 bg-slate-50 text-right">Bal</th>
                                 </tr>
                             </thead>
                             <tbody id="tx-body" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -1040,10 +1040,17 @@
                 const textSnippet = document.getElementById('raw-input').value;
                 if (!textSnippet) return ui.notify("No text to parse", "warning");
 
-                const regexPattern = JSON.parse(document.getElementById('config-editor').value).transactionRegex || null;
-                alert(regexPattern);
+                const regexPattern = JSON.parse(document.getElementById('config-editor').value) || null;
                 // Use backend Python parser for transactions
-                try {
+                let result = {
+                    bank: app.currentConfig?.name || "Unknown Bank",
+                    accountNumber: "N/A",
+                    period: "N/A",
+                    customer: {},
+                    summary: { start: 0, end: 0, credits: 0, debits: 0 },
+                    transactions: []
+                };
+                try {                    
                     const res = await fetch('http://127.0.0.1:5000/parse_transactions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1053,15 +1060,9 @@
                         const errorData = await res.json();
                         throw new Error(errorData.error || 'Unknown error');
                     }
-                    const result = {
-                        bank: app.currentConfig?.name || "Unknown Bank",
-                        accountNumber: "N/A",
-                        period: "N/A",
-                        customer: {},
-                        summary: { start: 0, end: 0, credits: 0, debits: 0 },
-                        transactions: []
-                    };
-                    const data = await res.json();
+                    const data1 = await res.json();
+                    data=data1.result;
+                    //ui.notify(JSON.stringify(data));
                     result.transactions = data.transactions || [];
                     // Calculate summary
                     result.summary.credits = result.transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
@@ -1070,7 +1071,7 @@
                         result.summary.start = result.transactions[0].balance || 0;
                         result.summary.end = result.transactions[result.transactions.length - 1].balance || 0;
                     }
-                    app.parsedData = result;
+                    app.parsedData = data;
                 } catch (e) {
                     console.error(e);
                     ui.notify("Server-side parsing failed. " + e.message, "error");
@@ -1086,8 +1087,8 @@
 
                 try {
                     console.log("Running client-side parser fallback...");
-                    const data = Parser.execute(textSnippet, app.currentConfig);
-                    app.parsedData = data;
+                    // const data = Parser.execute(textSnippet, app.currentConfig);
+                    //app.parsedData = data;
                     app.renderDashboard(data);
                 } catch (e) {
                     console.error(e);
@@ -1101,19 +1102,19 @@
 
                 // Header
                 document.getElementById('disp-bank-name').innerText = data.bank;
-                document.getElementById('disp-acct-num').innerText = data.accountNumber;
-                document.getElementById('disp-period').innerText = data.period;
+                document.getElementById('disp-acct-num').innerText = data.fields.accountNumber;
+                document.getElementById('disp-period').innerText = data.fields.period;
                 document.getElementById('disp-cust-name').innerText = data.customer.name || "";
                 document.getElementById('disp-cust-addr').innerText = data.customer.address || "";
 
                 // Stats
-                document.getElementById('val-start-bal').innerText = "$" + data.summary.start.toFixed(2);
-                document.getElementById('val-end-bal').innerText = "$" + data.summary.end.toFixed(2);
-                document.getElementById('val-credits').innerText = "$" + data.summary.credits.toFixed(2);
-                document.getElementById('val-debits').innerText = "$" + Math.abs(data.summary.debits).toFixed(2);
+                document.getElementById('val-start-bal').innerText =  data.fields.startBalance;
+                document.getElementById('val-end-bal').innerText = data.fields.endBalance;
+                document.getElementById('val-credits').innerText = "$" + data.summary.credits;
+                document.getElementById('val-debits').innerText = "$" +data.summary.debits;
 
-                document.getElementById('count-credits').innerText = data.transactions.filter(t => t.amount > 0).length + " txns";
-                document.getElementById('count-debits').innerText = data.transactions.filter(t => t.amount < 0).length + " txns";
+                document.getElementById('count-credits').innerText = data.summary.creditCount + " txns";
+                document.getElementById('count-debits').innerText =  data.summary.debitCount + " txns";
 
                 // Table
                 const tbody = document.getElementById('tx-body');
@@ -1121,11 +1122,11 @@
                 tbody.innerHTML = data.transactions.map(t => `
                     <tr>
                         <td class="p-4 bg-white font-mono text-xs">${t.date}</td>
-                        <td class="p-4 bg-white font-medium">${t.description}</td>
+                        <td class="p-4 bg-white font-medium">${t.desc}</td>
                         <td class="p-4 bg-white text-xs capitalize"><span class="px-2 py-1 rounded-full font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${t.type}</span></td>
-                        <td class="p-4 bg-white"><span class="bg-slate-100 px-2 py-1 rounded text-xs">${t.checkNumber || '-'}</span></td>
-                        <td class="p-4 bg-white text-right font-bold ${t.amount > 0 ? 'text-emerald-600' : 'text-red-600'}">${t.amount.toFixed(2)}</td>
-                        <td class="p-4 bg-white text-right text-slate-400 text-xs">${t.balance ? t.balance.toFixed(2) : '-'}</td>
+
+                        <td class="p-4 bg-white text-right font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${t.amount}</td>
+                       
                     </tr>
                 `).join('');
 
