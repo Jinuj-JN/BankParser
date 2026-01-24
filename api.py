@@ -199,6 +199,15 @@ def ai_call():
         return jsonify({"error": error_msg, "status_code": status_code}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+@app.route('/parse_transactions', methods=['POST'])
+def parse_transactions_endpoint():
+    data = request.get_json()
+    statement_text = data.get('text', '')
+    regex = data.get('regexPattern', '')
+    print(f"Received regex pattern: {regex}")
+    #print(f"Statement text length: {statement_text}")
+    #txns = parse_bank_statement_with_row(statement_text, regex_pattern=regex if regex else None)
+    return jsonify({'transactions': "txns"})
 
 if __name__ == '__main__':
     # For local development only; use a proper WSGI server in production.
