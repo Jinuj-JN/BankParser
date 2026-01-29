@@ -17,7 +17,7 @@
         ],
         "name": "lili",
         "regex_transaction_type": "row",
-        "transaction_regex": "^(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\S+\\s+(?P<desc>.+?)\\s+(?P<amount>\\$-?[\\d,]+\\.\\d{2})(?=\\s+\\$-?[\\d,]+\\.\\d{2})"
+        "transaction_regex": "^\\s*(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\S+\\s+(?P<desc>.+?)\\s+(?P<amount>\\$-?[\\d,]+\\.\\d{2})(?=\\s*\\$-?[\\d,]+\\.\\d{2})"
     },
     "cbt": {
         "fields": {
@@ -147,7 +147,7 @@
         ],
         "name": "trustcobank",
         "regex_transaction_type": "row",
-        "transaction_regex": "^(?P<date>\\d{1,2}-\\d{2})\\s+(?P<tracer>\\S+)\\s+(?P<desc>.+?)\\s+(?P<amount>[\\d,]+\\.\\d{2}-?)",
+        "transaction_regex": "^(?P<date>\\d{1,2}-\\d{2})\\s+(?P<tracer>\\S+)\\s+(?P<desc>.+?)\\s+(?P<amount>(?:\\d{1,3}(?:,\\d{3})*|\\d*)\\.\\d{2}-?)",
         "transaction_termination_regex": "--DAILY BALANCE SUMMARY-"
     },
     "dcu": {
@@ -191,6 +191,7 @@
         "transaction_termination_regex": "TOTAL DAYS IN STATEMENT PERIOD|Checks\\s+Date"
     },
     "americanheritage": {
+        "account_name_regex": "(ID\\s+\\d+)",
         "credit_summary_regex": "01 FREE BUSINESS CHECKING PLUS\\s*\"?[0-9,]+\\.[0-9]{2}\"?\\s*\"?([0-9,]+\\.[0-9]{2})\"?",
         "date_format": "MM/DD/YYYY",
         "debit_summary_regex": "01 FREE BUSINESS CHECKING PLUS\\s*\"?[0-9,]+\\.[0-9]{2}\"?\\s*\"?[0-9,]+\\.[0-9]{2}\"?\\s*\"?(-?[0-9,]+\\.[0-9]{2})\"?",
@@ -211,7 +212,8 @@
         ],
         "name": "americanheritage",
         "regex_transaction_type": "row",
-        "transaction_regex": "^\"?(?P<date>\\d{2}/\\d{2}/\\d{4})\"?\\s*,?\\s*\"(?P<desc>.+?)\"\\s*,?\\s*\"?(?P<amount>-?[0-9,]+\\.[0-9]{2}|,+,?\"?[0-9,]+\\.[0-9]{2}\"?)"
+        "section_split_regex": "(?=ID\\s+\\d+)",
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+[\\d,]+\\.\\d{2}$"
     },
     "americu": {
         "credit_summary_regex": "Total Credits/Deposits\\s*\"\\s*,?\\s*\"\\s*([\\d,]+\\.\\d{2})",
@@ -235,5 +237,28 @@
         "name": "americu",
         "regex_transaction_type": "row",
         "transaction_regex": "^\"(?P<date>\\d{2}-\\d{2}-\\d{4})\"\\s*,\\s*\"(?P<desc>(?:.|\\n)*?)\"\\s*,\\s*(?P<amount>\"-?[\\d,]+\\.\\d{2}\"|\\s*,\\s*\"[\\d,]+\\.\\d{2}\")"
+    },
+    "suncoast_credit_union_section": {
+        "name": "suncoast_credit_union_section",
+        "identifiers": [
+            "Suncoast",
+            "Account Statement",
+            "Member Number"
+        ],
+        "date_format": "MM/DD/YYYY",
+        "section_split_regex": "(?=BUSINESS .* Suffix \\d+)",
+        "account_name_regex": "(BUSINESS .* Suffix \\d+)",
+        "fields": {
+            "accountNumber_regex": "Member Number:\\s*([0-9]+)",
+            "period_regex": "([0-9]{2}/[0-9]{2}/[0-9]{4}) - ([0-9]{2}/[0-9]{2}/[0-9]{4})",
+            "startBalance_regex": "Previous Balance \\d{2}/\\d{2}/\\d{4}\\s+\\$?([0-9,]+\\.[0-9]{2})",
+            "startBalance_regex_group": 0,
+            "endBalance_regex": "Ending Balance \\d{2}/\\d{2}/\\d{4}\\s+\\$?(-?[0-9,]+\\.[0-9]{2})",
+            "endBalance_regex_group": 0,
+            "accountNumber_group": 0
+        },
+        "regex_transaction_type": "row",
+        "transaction_regex": "^\\s*(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\d{2}/\\d{2}/\\d{4}\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<balance>-?[\\d,]+\\.\\d{2})",
+        "transaction_termination_regex": "Share Draft Summary|Total for this"
     }
 }

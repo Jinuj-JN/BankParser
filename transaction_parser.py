@@ -75,11 +75,7 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
     credit_total = sum(t["amount"] for t in transactions if t["section_id"] == "credit")
     debit_total = sum(t["amount"] for t in transactions if t["section_id"] == "debit")
     ending_balance = transactions[-1]["amount"] if transactions else 0   
-    output = {
-        "bank":"",
-        "accountNumber":"",
-        "period":"",
-        "customer":"",
+    output = {        
         "fields": parse_bank_statement(txtStatement, regex_config), 
         "summary":{
             "start": "",
@@ -94,14 +90,35 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
 
     #print(json.dumps(output, indent=2))
     return output
-def parse_bank_statement_with_row(text, regex_config):    
+def parse_bank_statement_with_row(text, regex_config,section_name):   
+    if not section_name:
+        section_name ="unknown"
     # 1. Load Regex Patterns
     tx_regex = regex_config["transaction_regex"]
- 
+  
+    print("sec:",section_name)
+    # Helper to clean currency strings to float
     # Helper to clean currency strings to float
     def to_float(s):
-        s=normalize_number_string(s)
-        return float(s.replace(',', ''))      
+        if not s: 
+            return 0.0
+        
+        s = str(s)
+        
+        # 1. REMOVE QUOTES (Critical for CSV parsing)
+        s = s.replace('"', '').replace("'", "")
+        
+        # 2. Clean delimiters
+        s = s.replace('$', '').replace(',', '').strip()
+        
+        # 3. Handle trailing negatives
+        if s.endswith('-'):
+            s = '-' + s[:-1]
+            
+        try:
+            return float(s)
+        except ValueError:
+            return 0.0              
 
     # 3. Extract Transactions
     transactions = []
@@ -121,46 +138,54 @@ def parse_bank_statement_with_row(text, regex_config):
     count = 0
     creditCount = 0
     debitCount = 0
-    for match in matches:        
+    for match in matches:
+
+        if match.group("date"):
+            # This is a standard transaction (Date, Desc, Amount)
+            date_raw = match.group("date")
+            desc_raw = match.group("desc")
+            amount_str = match.group("amount")
+        else:
+            # This is a 'Checks Cleared' row (Check#, Date, Amount)
+            date_raw = match.group("chk_date")
+            desc_raw = f"Check {match.group('chk_num')}"
+            # Ensure it is treated as a negative value since it's a check
+            amount_str = f"-{match.group('chk_amount')}"
+
+        print("Matched Line:", match.group(0))
         count += 1
-        date_raw = match.group("date")
-        desc_raw = match.group("desc")
-        amount_str = match.group("amount") if "amount" in match.groupdict() else None      
+        
         transtype = 'unknown'
-        amount_float = to_float(amount_str.replace('$', ''))
+        amount_float = to_float(amount_str)
         if amount_float > 0:
                 transtype ='credit'
                 creditCount += 1
         else: 
                 transtype ='debit'   
                 debitCount +=  1
-        #print(f"Matched Transaction - Date: {date_raw}, Desc: {desc_raw}, Amount: {amount_str}")
-        # Format Date: 08/01/2025 (already correct format)
-        date_formatted = date_raw
 
-        # Clean Description:
+        date_formatted = date_raw
         desc_clean = re.sub(r'\s+', ' ', desc_raw).strip()
 
         # Math Logic
-        amount_float = to_float(amount_str.replace('$', ''))
+        amount_float = to_float(amount_str)
         if amount_float > 0:
             total_credit_calc += amount_float
         else:
             total_debit_calc += amount_float
+        
+        print("name of the section",section_name)
 
         transactions.append({
             "date": date_formatted,
             "desc": desc_clean,
             "amount": amount_str,
-            "type": transtype
+            "type": transtype,
+            "section": section_name.replace(" ","_").lower()
         })
     # 5. Build Final JSON
-    output = {   
-        "bank":"",
-        "accountNumber":"",
-        "period":"",
-        "customer":"",  
-        "fields": parse_bank_statement(text, regex_config), 
+    output = { 
+        "fields": parse_bank_statement(text, regex_config),         
         "summary":{           
             "debits": f"{total_debit_calc:,.2f}",
             "credits": f"{total_credit_calc:,.2f}",
@@ -172,6 +197,7 @@ def parse_bank_statement_with_row(text, regex_config):
     return output
 def parse_bank_statement(text, regex_config):
     accountNumber_regex = regex_config["fields"]["accountNumber_regex"]
+    print("Using account number regex:", accountNumber_regex)
     peiod_regex = regex_config["fields"]["period_regex"]
     startBal_regex = regex_config["fields"]["startBalance_regex"]
     endBal_regex = regex_config["fields"]["endBalance_regex"]
@@ -199,3 +225,84 @@ def normalize_number_string(s: str) -> str:
     if s.endswith("-"):
         return "-" + s[:-1]
     return s
+def parse_multi_account_statement(text, regex_config):
+    """
+    Splits the PDF text into sections based on account headers and parses each separately.
+    Merges consecutive sections with the same account ID.
+    Returns a list of account objects.
+    """
+    split_pattern = regex_config.get("section_split_regex")
+    print("Using section split pattern:", split_pattern)
+    
+    if not split_pattern:
+        print("No section split pattern defined, treating as single account statement.")
+        return parse_bank_statement_with_row(text, regex_config, "")
+
+    # Split the text
+    sections = [s for s in re.split(split_pattern, text) if s.strip()]
+    print(f"Found {len(sections)} sections based on split pattern.")
+    
+    accounts_data = []
+    counter = 0
+
+    # Helper to parse currency strings for math operations
+    def parse_currency(val):
+        if not val: return 0.0
+        clean = str(val).replace('$', '').replace(',', '').replace(' ', '')
+        if clean.endswith('-'): clean = '-' + clean[:-1]
+        try: return float(clean)
+        except ValueError: return 0.0
+
+    for section_text in sections:
+        counter += 1
+        print("sec start***",section_text,"**** sec end")
+        # Check if this section has transactions
+        # if not re.search(regex_config["transaction_regex"], section_text, re.MULTILINE):
+        #     print(f"Skipping section {counter} as it contains no transactions.")
+        #     continue    
+        # Identify Account Name/ID first
+        acc_name_match = re.search(regex_config.get("account_name_regex", ""), section_text)
+        current_account_type = "Unknown"
+        
+        if acc_name_match:
+            current_account_type = acc_name_match.group(0).strip()
+            print("Found account name:", current_account_type)
+        
+        # Parse the section data
+        account_data = parse_bank_statement_with_row(section_text, regex_config, section_name=current_account_type)
+        account_data["accountType"] = current_account_type
+
+        # --- MERGE LOGIC START ---
+        # Check if we should merge with the previous account
+        if accounts_data and accounts_data[-1].get("accountType") == current_account_type:
+            print(f"Merging section {counter} into existing '{current_account_type}' account...")
+            previous_data = accounts_data[-1]
+            
+            # 1. Merge Transactions
+            previous_data["transactions"].extend(account_data["transactions"])
+            
+            # 2. Merge Summaries
+            prev_sum = previous_data["summary"]
+            curr_sum = account_data["summary"]
+            
+            # Update Counts
+            prev_sum["debitCount"] += curr_sum["debitCount"]
+            prev_sum["creditCount"] += curr_sum["creditCount"]
+            
+            # Update Totals (Parse -> Add -> Re-format)
+            total_debits = parse_currency(prev_sum.get("debits")) + parse_currency(curr_sum.get("debits"))
+            total_credits = parse_currency(prev_sum.get("credits")) + parse_currency(curr_sum.get("credits"))
+            
+            prev_sum["debits"] = f"{total_debits:,.2f}"
+            prev_sum["credits"] = f"{total_credits:,.2f}"
+            
+            # 3. Update Ending Balance (The later section usually has the correct final balance)
+            if account_data["fields"].get("endBalance") and account_data["fields"]["endBalance"] != "0.00":
+                previous_data["fields"]["endBalance"] = account_data["fields"]["endBalance"]
+                
+        else:
+            # New account found, just append
+            accounts_data.append(account_data)
+        # --- MERGE LOGIC END ---
+
+    return {"accounts": accounts_data}

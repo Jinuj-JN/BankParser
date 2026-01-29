@@ -1104,10 +1104,8 @@
                 document.getElementById('disp-bank-name').innerText = data.bank;
                 document.getElementById('disp-acct-num').innerText = data.fields.accountNumber;
                 document.getElementById('disp-period').innerText = data.fields.period;
-                document.getElementById('disp-cust-name').innerText = data.customer.name || "";
-                document.getElementById('disp-cust-addr').innerText = data.customer.address || "";
 
-                // Stats
+                // // Stats
                 document.getElementById('val-start-bal').innerText =  data.fields.startBalance;
                 document.getElementById('val-end-bal').innerText = data.fields.endBalance;
                 document.getElementById('val-credits').innerText = "$" + data.summary.credits;
@@ -1136,6 +1134,7 @@
                 // Update JSON Output
                 document.getElementById('json-output').innerText = JSON.stringify(data, null, 2);
                 document.getElementById('dashboard-header').classList.remove('hidden');
+                
             },
 
             renderCharts: (data) => {
