@@ -55,8 +55,8 @@
         },
         "identifiers": [
             "numericacu.com",
-            "Numerica Credit Union",
-            "Account Statement",
+            "NUMERICA CREDIT UNION",
+            "Checking",
             "Account Number"
         ],
         "name": "numerica",
@@ -265,5 +265,32 @@
         "regex_transaction_type": "row",
         "transaction_regex": "^\\s*(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\d{2}/\\d{2}/\\d{4}\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<balance>-?[\\d,]+\\.\\d{2})",
         "transaction_termination_regex": "Share Draft Summary|Total for this"
+    },
+    "german_american_bank": {
+        "check_tx_regex": "(?P<check>\\d+)(?P<missing>\\*)?\\s+(?P<date>\\d{1,2}/\\d{1,2}/\\d{4})\\s+\\$?(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "(?:AccountNo\\.?|AccountNumber)\\s+(\\d+)",
+            "endBalance_regex": "Statement\\s+Ending\\s+Balance\\s+\\$?([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 0,
+            "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance_regex": "Statement\\s+Beginning\\s+Balance\\s+\\$?([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "germanamerican",
+            "Financial Calculators",
+            "BUSINESS",
+            "Account Summary"
+        ],
+        "name": "German American Bank",
+        "regex_transaction_type": "section",
+        "section_map": {
+            "check": "checkscleared",
+            "credit": "othercredits",
+            "debit": "otherdebits"
+        },
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>.+?)\\s+(?P<amount>\\$[\\d,]+\\.\\d{2})$",
+        "transaction_termination_regex": "dailybalances"
     }
 }

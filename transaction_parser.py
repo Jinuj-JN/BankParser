@@ -7,6 +7,27 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
     """
     #with open(txt_path, 'r', encoding='utf-8') as f:
         #text = f.read()
+    def to_float(s):
+        if not s: 
+            return 0.0
+        
+        s = str(s)
+        
+        # 1. REMOVE QUOTES (Critical for CSV parsing)
+        s = s.replace('"', '').replace("'", "")
+        
+        # 2. Clean delimiters
+        s = s.replace('$', '').replace(',', '').strip()
+        
+        # 3. Handle trailing negatives
+        if s.endswith('-'):
+            s = '-' + s[:-1]
+            
+        try:
+            return float(s)
+        except ValueError:
+            return 0.0              
+
 
     tx_regex = regex_config["transaction_regex"]
     section_map = regex_config["section_map"]
@@ -69,7 +90,7 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
                 debitCount += 1
             elif current_section_id == "credit":
                 creditCount += 1
-            amount=float(amount)
+            amount=to_float(amount)
             transactions.append({
                 "date": date,
                 "desc": desc,
@@ -84,7 +105,7 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
             for match in check_pattern.finditer(line):
                 date = match.group("date")
                 check_no = match.group("check")
-                amount = float(match.group("amount").replace(",", ""))
+                amount = to_float(match.group("amount").replace(",", ""))
 
                 checkCount += 1
 
