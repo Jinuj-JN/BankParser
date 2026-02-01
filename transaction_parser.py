@@ -13,10 +13,11 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
     # --- NEW: TERMINATION LOGIC ---
     # Retrieve termination pattern from config (default to None if missing)
     termination_pattern = regex_config.get("transaction_termination_regex")
+    check_tx_regex = regex_config["check_tx_regex"]
+
     # ------------------------------
-    pattern = re.compile(tx_regex,
-    re.MULTILINE
-)
+    pattern = re.compile(tx_regex, re.MULTILINE)
+    check_pattern = re.compile(check_tx_regex, re.MULTILINE)
 
 # Section mapping
     section_map =regex_config["section_map"]
@@ -25,6 +26,7 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
     current_section_id = None
     debitCount = 0
     creditCount = 0
+    checkCount=0
 # First, split into blocks by section headers
     lines = txtStatement.splitlines()
     stop_parsing = False  # Flag to kill the loop
@@ -33,7 +35,8 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
         if not line:
            continue
         # --- TERMINATION LOGIC ---
-        if termination_pattern and re.search(termination_pattern, line, re.IGNORECASE):
+        normalized_line = re.sub(r"\s+", "", line).lower()
+        if termination_pattern and re.search(termination_pattern, normalized_line, re.IGNORECASE):
             print(f"STOPPING PARSE at line: {line}")
             stop_parsing = True
             break # Break the loop immediately
@@ -41,7 +44,7 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
         if stop_parsing: 
             break
         # -------------------------
-    # Detect section headers
+    # --------Detect section headers---------------
         key = line.lower().replace(" ", "")
         #print(f"Processing line: {line} | Key: {key}")
         for sec_id, header in section_map.items():
@@ -50,7 +53,10 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
             current_section_id = sec_id
             print(f"Switched to section: {current_section} ({current_section_id})")
             continue
-        # Match transaction lines
+    # ----------------------------------------------      
+
+
+        # Match transaction lines for credit and debit
         match = pattern.match(line)
         if match:
             date = match.group("date")
@@ -72,8 +78,32 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
                 "section_id": current_section_id,
                 "type": current_section_id,
             })
+
+    # -------- CHECK ACTIVITY (MULTI-COLUMN) --------
+        if current_section_id == "check":
+            for match in check_pattern.finditer(line):
+                date = match.group("date")
+                check_no = match.group("check")
+                amount = float(match.group("amount").replace(",", ""))
+
+                checkCount += 1
+
+                transactions.append({
+                "date": date,
+                "check": check_no,
+                "amount": amount,
+                "desc": f"CHECK {check_no}",
+                "section": current_section,
+                "section_id": "check",
+                "type": "check"
+                })
+                continue
+    # ---------------End if for loop-------------------------------
+
     credit_total = sum(t["amount"] for t in transactions if t["section_id"] == "credit")
-    debit_total = sum(t["amount"] for t in transactions if t["section_id"] == "debit")
+    #debit_total = sum(t["amount"] for t in transactions if t["section_id"] == "debit")
+    debit_total = sum(t["amount"]for t in transactions if t["section_id"] in ("debit", "check")
+)
     ending_balance = transactions[-1]["amount"] if transactions else 0   
     output = {        
         "fields": parse_bank_statement(txtStatement, regex_config), 
@@ -94,8 +124,12 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     if not section_name:
         section_name ="unknown"
     # 1. Load Regex Patterns
-    tx_regex = regex_config["transaction_regex"]
+    tx_regex = regex_config["transaction_regex"] #signed amount
+    column_tx_regex = regex_config.get("transaction_regex_columns")  # debit/credit columns
   
+    pattern = re.compile(tx_regex, re.MULTILINE) if tx_regex else None
+    column_pattern = re.compile(column_tx_regex, re.MULTILINE) if column_tx_regex else None
+
     print("sec:",section_name)
     # Helper to clean currency strings to float
     # Helper to clean currency strings to float
@@ -124,6 +158,9 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     transactions = []
     total_credit_calc = 0.0
     total_debit_calc = 0.0
+    creditCount = 0
+    debitCount = 0
+
     clean_text = '\n'.join(line.strip() for line in text.splitlines())
 
     termination_pattern = regex_config.get("transaction_termination_regex")
@@ -133,56 +170,79 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
             # Slice the text up to the start of the match
             clean_text = clean_text[:term_match.start()]
 
+    
+    for line in clean_text.splitlines():
+        if not line.strip():
+            continue
 
-    matches = list(re.finditer(tx_regex, clean_text, re.MULTILINE))
-    count = 0
-    creditCount = 0
-    debitCount = 0
-    for match in matches:
+    # ----------------------------------------------------
+    # 1️⃣ COLUMN-BASED (Debit / Credit columns)
+    # ----------------------------------------------------
 
-        if match.group("date"):
-            # This is a standard transaction (Date, Desc, Amount)
+        if column_pattern:
+            m = column_pattern.match(line)
+            if m:
+                debit = m.group("debit")
+                credit = m.group("credit")
+
+                if credit and credit.strip():
+                    amount = to_float(credit)
+                    transtype = "credit"
+                    total_credit_calc += amount
+                    creditCount += 1
+
+                elif debit and debit.strip():
+                    amount = to_float(debit)
+                    transtype = "debit"
+                    total_debit_calc += amount
+                    debitCount += 1
+
+                else:
+                    continue  # safety
+
+                transactions.append({
+                    "date": m.group("date"),
+                    "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
+                    "amount": f"{amount:.2f}",
+                    "type": transtype,
+                    "section": section_name.replace(" ", "_").lower()
+                })
+                continue  # 🚨 critical (prevents double parsing)
+
+
+    # ----------------------------------------------------
+    # 2️⃣ SIGNED AMOUNT (existing logic)
+    # ----------------------------------------------------
+
+        if pattern:
+            match = pattern.match(line)
+            if not match:
+                continue
+
             date_raw = match.group("date")
             desc_raw = match.group("desc")
             amount_str = match.group("amount")
-        else:
-            # This is a 'Checks Cleared' row (Check#, Date, Amount)
-            date_raw = match.group("chk_date")
-            desc_raw = f"Check {match.group('chk_num')}"
-            # Ensure it is treated as a negative value since it's a check
-            amount_str = f"-{match.group('chk_amount')}"
 
-        print("Matched Line:", match.group(0))
-        count += 1
-        
-        transtype = 'unknown'
-        amount_float = to_float(amount_str)
-        if amount_float > 0:
-                transtype ='credit'
+            amount_float = to_float(amount_str)
+
+            if amount_float > 0:
+                transtype = "credit"
+                total_credit_calc += amount_float
                 creditCount += 1
-        else: 
-                transtype ='debit'   
-                debitCount +=  1
+            else:
+                transtype = "debit"
+                total_debit_calc += amount_float
+                debitCount += 1
 
-        date_formatted = date_raw
-        desc_clean = re.sub(r'\s+', ' ', desc_raw).strip()
+            transactions.append({
+                "date": date_raw,
+                "desc": re.sub(r"\s+", " ", desc_raw).strip(),
+                "amount": amount_str,
+                "type": transtype,
+                "section": section_name.replace(" ", "_").lower()
+            })
 
-        # Math Logic
-        amount_float = to_float(amount_str)
-        if amount_float > 0:
-            total_credit_calc += amount_float
-        else:
-            total_debit_calc += amount_float
-        
-        print("name of the section",section_name)
 
-        transactions.append({
-            "date": date_formatted,
-            "desc": desc_clean,
-            "amount": amount_str,
-            "type": transtype,
-            "section": section_name.replace(" ","_").lower()
-        })
     # 5. Build Final JSON
     output = { 
         "fields": parse_bank_statement(text, regex_config),         

@@ -5,17 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Attach to Chrome",
-            "port":"5000",
-            "request": "attach",
-            "type": "chrome",
-            "webRoot": "${workspaceFolder}"
-        },
-        {
-            "name": "Python Debugger: Attach using Process Id",
-            "type": "debugpy",
-            "request": "attach",
-            "processId": "${command:pickProcess}"
+            "name": "Python: App",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/api.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }

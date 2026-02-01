@@ -20,6 +20,7 @@
         "transaction_regex": "^\\s*(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\S+\\s+(?P<desc>.+?)\\s+(?P<amount>\\$-?[\\d,]+\\.\\d{2})(?=\\s*\\$-?[\\d,]+\\.\\d{2})"
     },
     "cbt": {
+        "check_tx_regex": "(?P<date>\\d{1,2}/\\d{2})\\s+(?P<check>\\d+(?:\\s*[A-Z])?\\*?)\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Account\\ ?Number:\\s*([x\\d]+)",
@@ -35,10 +36,12 @@
         "name": "CBT",
         "regex_transaction_type": "section",
         "section_map": {
+            "check": "checkactivity",
             "credit": "deposits&othercredits",
             "debit": "withdrawals&charges"
         },
-        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)$"
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)$",
+        "transaction_termination_regex": "DailyBalanceInformation"
     },
     "numerica": {
         "fields": {
@@ -61,6 +64,7 @@
         "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+\\d{2}/\\d{2}\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+[\\d,.-]+\\s*(?:\\n\\s+(?!\\d{2}/\\d{2}).*)*"
     },
     "farmers_merchants_bank": {
+        "check_tx_regex": "(?P<date>\\d{1,2}/\\d{2})\\s+(?P<check>\\d+)(?P<missing>\\*)?\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "(?:AccountNo\\.?|AccountNumber)\\s+(\\d+)",
@@ -78,10 +82,12 @@
         "name": "farmers merchants bank",
         "regex_transaction_type": "section",
         "section_map": {
+            "check": "checksinnumberorder",
             "credit": "depositsandothercredits",
             "debit": "checksandotherdebits"
         },
-        "transaction_regex": "^(?P<date>\\d{1,2}\\/\\d{1,2})\\s+(?P<desc>.+?)\\s+(?P<amount>[-+]?\\$?[\\d,.]+(?:\\.\\d{2})?[-+]?)"
+        "transaction_regex": "^(?P<date>\\d{1,2}\\/\\d{1,2})\\s+(?P<desc>.+?)\\s+(?P<amount>[-+]?\\$?[\\d,.]+(?:\\.\\d{2})?[-+]?)",
+        "transaction_termination_regex": "checkingaccountdailybalances"
     },
     "safecreditunion": {
         "credit_summary_regex": "Deposits:\\s*([\\d,]+\\.\\d{2})",
@@ -107,9 +113,6 @@
         "transaction_regex": "^(?P<date>\\d{2}-\\d{2})\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)"
     },
     "suncoastcreditunion": {
-        "credit_summary_regex": "Deposits\\s*\\$([\\d,]+\\.\\d{2})",
-        "date_format": "MM/DD/YYYY",
-        "debit_summary_regex": "Withdrawals\\s*\\$(-?[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Member Number:\\s*(\\d+)",
@@ -171,13 +174,14 @@
         "transaction_termination_regex": "CHECKS CLEARED|TOTAL DIVIDENDS"
     },
     "homebank": {
+        "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d{4,6})\\*?\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Account Number: [X]+(\\d+)",
-            "startBalance_regex": "Previous Balance:\\s*(-?\\$[\\d,]+\\.\\d{2})",
             "endBalance_regex": "Current Balance:\\s*(-?\\$[\\d,]+\\.\\d{2})",
             "endBalance_regex_group": 0,
             "period_regex": "Period ([\\d/]+) to ([\\d/]+)",
+            "startBalance_regex": "Previous Balance:\\s*(-?\\$[\\d,]+\\.\\d{2})",
             "startBalance_regex_group": 0
         },
         "identifiers": [
@@ -187,7 +191,8 @@
         ],
         "name": "homebank",
         "regex_transaction_type": "row",
-        "transaction_regex": "^(?P<date>\\d{2}/\\d{2}/\\d{2})\\s+(?P<desc>.+?)\\s+(?P<amount>\\$[\\d,]+\\.\\d{2})(?:\\s+\\$[\\d,]+\\.\\d{2})?\\s+\\$[\\d,]+\\.\\d{2}",
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)$",
+        "transaction_regex_columns": "^(?P<date>\\d{2}/\\d{2}/\\d{2})\\s+(?P<desc>.+?)\\s{2,}(?P<debit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<credit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<balance>\\$?[\\d,]+\\.\\d{2})$",
         "transaction_termination_regex": "TOTAL DAYS IN STATEMENT PERIOD|Checks\\s+Date"
     },
     "americanheritage": {
