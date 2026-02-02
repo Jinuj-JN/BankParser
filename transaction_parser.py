@@ -145,11 +145,19 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     if not section_name:
         section_name ="unknown"
     # 1. Load Regex Patterns
+    section_map = regex_config.get("section_map", {})
     tx_regex = regex_config["transaction_regex"] #signed amount
     column_tx_regex = regex_config.get("transaction_regex_columns")  # debit/credit columns
   
     pattern = re.compile(tx_regex, re.MULTILINE) if tx_regex else None
     column_pattern = re.compile(column_tx_regex, re.MULTILINE) if column_tx_regex else None
+
+    # ----------------------------------------------------
+    # CHECK variables
+    # ----------------------------------------------------
+    
+    check_tx_regex = regex_config.get("check_tx_regex")
+    check_pattern = re.compile(check_tx_regex) if check_tx_regex else None
 
     print("sec:",section_name)
     # Helper to clean currency strings to float
@@ -195,6 +203,49 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     for line in clean_text.splitlines():
         if not line.strip():
             continue
+        line_lower = line.lower()
+
+        #if "checks paid" in line_lower:
+            #section_name="checks paid"
+            #continue
+        
+        for section_id, header in section_map.items():
+            if re.search(rf"\b{re.escape(header.lower())}\b", line_lower):
+                section_name = header
+                continue
+
+
+        # ----------------------------------------------------
+    # 1️⃣ CHECKS PAID (multi-column, same line)
+    # ----------------------------------------------------
+
+        check_section = section_map.get("check", "").lower()
+        #if check_pattern and "checks paid" in section_name.lower():
+        if check_pattern and check_section and check_section in section_name.lower():
+           
+           found_check = False
+
+           for m in check_pattern.finditer(line):
+                if m:
+                    found_check=True
+                    check_no = m.group("check")
+                    date_raw = m.group("date")
+                    amount = to_float(m.group("amount"))
+
+        # Checks are always debits
+                if found_check:
+                    total_debit_calc += amount
+                    debitCount += 1
+
+                    transactions.append({
+                    "date": date_raw.replace("-", "/"),
+                    "desc": f"CHECK {check_no}",
+                    "amount": f"-{amount:.2f}",
+                    "type": "check",
+                    "section": section_name.replace(" ", "_").lower()
+            })
+                if found_check:
+                  continue  # 🚨 prevents double parsing
 
     # ----------------------------------------------------
     # 1️⃣ COLUMN-BASED (Debit / Credit columns)
@@ -262,8 +313,7 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                 "type": transtype,
                 "section": section_name.replace(" ", "_").lower()
             })
-
-
+    
     # 5. Build Final JSON
     output = { 
         "fields": parse_bank_statement(text, regex_config),         
