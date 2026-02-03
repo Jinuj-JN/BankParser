@@ -103,10 +103,8 @@
             "startBalance_regex_group": 0
         },
         "identifiers": [
-            "SAFE CREDIT UNION",
-            "safecu.org",
-            "2295 Iron Point Road",
-            "Member Number:"
+            "Member Number:",
+            "BUSINESSCHECKING"
         ],
         "name": "safecreditunion",
         "regex_transaction_type": "row",
