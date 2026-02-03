@@ -103,8 +103,10 @@
             "startBalance_regex_group": 0
         },
         "identifiers": [
-            "Member Number:",
-            "BUSINESSCHECKING"
+            "SAFE CREDIT UNION",
+            "safecu.org",
+            "2295 Iron Point Road",
+            "Member Number:"
         ],
         "name": "safecreditunion",
         "regex_transaction_type": "row",
@@ -159,7 +161,7 @@
         "check_tx_regex": "(?P<check>\\d{3,})\\s+(?P<date>[A-Z]{3}\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
-            "accountNumber_regex": "ACCT(?:\\s*|\\s+#)\\s*(\\d+)",
+            "accountNumber_regex": "[A-Z]+\\s+[A-Z]+.*?ACCT#\\s*(\\d+)",
             "endBalance_regex": "NEW BALANCE\\s+([\\d,]+\\.\\d{2})",
             "endBalance_regex_group": 1,
             "period_regex": "STATEMENT PERIOD\\s+([\\d-]+\\s+to\\s+[\\d-]+)",
