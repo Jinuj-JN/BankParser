@@ -254,8 +254,12 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
         if column_pattern:
             m = column_pattern.match(line)
             if m:
-                debit = m.group("debit")
-                credit = m.group("credit")
+                #debit = m.group("debit")
+                #credit = m.group("credit")
+
+                groups = m.groupdict()
+                debit = groups.get("debit")
+                credit = groups.get("credit")
 
                 if credit and credit.strip():
                     amount = to_float(credit)

@@ -158,9 +158,10 @@
         "transaction_termination_regex": "--DAILY BALANCE SUMMARY-"
     },
     "dcu": {
+        "check_tx_regex": "(?P<check>\\d{3,})\\s+(?P<date>[A-Z]{3}\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
-            "accountNumber_regex": "MEMBER #\\s+(\\d+)",
+            "accountNumber_regex": "ACCT(?:\\s*|\\s+#)\\s*(\\d+)",
             "endBalance_regex": "NEW BALANCE\\s+([\\d,]+\\.\\d{2})",
             "endBalance_regex_group": 1,
             "period_regex": "STATEMENT PERIOD\\s+([\\d-]+\\s+to\\s+[\\d-]+)",
@@ -174,11 +175,14 @@
         ],
         "name": "dcu",
         "regex_transaction_type": "row",
-        "transaction_regex": "^(?P<date>[A-Z]{3}\\d{2})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})(?=\\s+[\\d,]+\\.\\d{2}|$)",
-        "transaction_termination_regex": "CHECKS CLEARED|TOTAL DIVIDENDS"
+        "section_map": {
+            "check": "checks cleared"
+        },
+        "transaction_regex": "^(?P<date>[A-Z]{3}\\d{2})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<balance>[\\d,]+\\.\\d{2})$",
+        "transaction_termination_regex": "DEPOSITS, DIVIDENDS AND OTHER CREDITS"
     },
     "homebank": {
-        "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d{4,6})\\*?\\s+(?P<amount>[\\d,]+\\.\\d{2})",
+        "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d+)\\*?\\s+\\$?(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Account Number: [X]+(\\d+)",
@@ -195,8 +199,12 @@
         ],
         "name": "homebank",
         "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checks"
+        },
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)$",
         "transaction_regex_columns": "^(?P<date>\\d{2}/\\d{2}/\\d{2})\\s+(?P<desc>.+?)\\s{2,}(?P<debit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<credit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<balance>\\$?[\\d,]+\\.\\d{2})$",
-        "transaction_termination_regex": "TOTAL DAYS IN STATEMENT PERIOD|Checks\\s+Date"
+        "transaction_termination_regex": "Itemization of Overdraft and Returned Item Fees"
     },
     "americanheritage": {
         "account_name_regex": "(ID\\s+\\d+)",
@@ -224,6 +232,7 @@
         "transaction_regex": "^(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+[\\d,]+\\.\\d{2}$"
     },
     "americu": {
+        "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d{4,6})\\*?\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "credit_summary_regex": "Total Credits/Deposits\\s*\"\\s*,?\\s*\"\\s*([\\d,]+\\.\\d{2})",
         "date_format": "MM-DD-YYYY",
         "debit_summary_regex": "Total Debits/Checks\\s*\"\\s*,?\\s*\"\\s*(-?[\\d,]+\\.\\d{2})",
@@ -244,7 +253,9 @@
         ],
         "name": "americu",
         "regex_transaction_type": "row",
-        "transaction_regex": "^\"(?P<date>\\d{2}-\\d{2}-\\d{4})\"\\s*,\\s*\"(?P<desc>(?:.|\\n)*?)\"\\s*,\\s*(?P<amount>\"-?[\\d,]+\\.\\d{2}\"|\\s*,\\s*\"[\\d,]+\\.\\d{2}\")"
+        "transaction_regex": "^(?P<date>\\d{2}-\\d{2}-\\d{4})\\s+(?P<desc>(?:.|\\n)*?)\\s{2,}(?P<debit>-?[\\d,]+\\.\\d{2})?\\s+(?P<credit>[\\d,]+\\.\\d{2})?\\s+(?P<balance>[\\d,]+\\.\\d{2})",
+        "transaction_regex_columns": "^(?P<date>\\d{2}-\\d{2}-\\d{4})\\s+(?P<desc>.*?)\\s{2,}(?P<debit>-?[\\d,]+\\.\\d{2})?\\s{2,}(?P<credit>[\\d,]+\\.\\d{2})?\\s+(?P<balance>-?[\\d,]+\\.\\d{2})$",
+        "transaction_termination_regex": "TOTAL DAYS IN STATEMENT PERIOD|Checks\\s+Date"
     },
     "suncoast_credit_union_section": {
         "name": "suncoast_credit_union_section",
@@ -268,5 +279,77 @@
         "regex_transaction_type": "row",
         "transaction_regex": "^\\s*(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\d{2}/\\d{2}/\\d{4}\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<balance>-?[\\d,]+\\.\\d{2})",
         "transaction_termination_regex": "Share Draft Summary|Total for this"
+    },
+    "middletown": {
+        "check_tx_regex": "(?P<date>\\d{1,2}/\\d{1,2})\\s+(?:(?P<check>\\d{3,}(?:\\*)?)\\s+(?P<amount>[\\d,]+\\.\\d{2})|CHECK\\s+(?P<check2>\\d{3,})\\s+.*?(?P<amount2>-?[\\d,]+\\.\\d{2}))",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "MEMBER #\\s+(\\d+)",
+            "endBalance_regex": "Current Balance\\s+([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 1,
+            "period_regex": "STATEMENT PERIOD\\s+([\\d-]+\\s+to\\s+[\\d-]+)",
+            "startBalance_regex": "Previous Balance\\s+([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 1
+        },
+        "identifiers": [
+            "Middletown Valley Bank",
+            "www.mvbbank.com"
+        ],
+        "name": "MiddleTown",
+        "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checks in number order"
+        },
+        "transaction_regex": "^(?P<date>\\d{1,2}/\\d{1,2})\\s+(?P<desc>.*?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})$",
+        "transaction_termination_regex": "Daily Balance Information"
+    },
+    "atltanticfcu": {
+        "check_tx_regex": "(?P<check>\\d+)(?P<missing>\\*)?\\s+(?P<date>\\d{1,2}-\\d{1,2})\\s+(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "ACCOUNT NUMBER\\s*\\n(\\d+)",
+            "endBalance_regex": "Current Balance\\s*([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 0,
+            "period_regex": "Statement Date\\s*(\\d{1,2}-\\d{2}-\\d{2})",
+            "startBalance_regex": "Previous Balance\\s*\\d{1,2}-\\d{2}-\\d{2}\\s*([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "ATLANTIC FEDERAL CREDIT UNION",
+            "www.atlanticfcu.com"
+        ],
+        "name": "atltanticfcu",
+        "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checks paid"
+        },
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<desc>.+?)\\s+(?P<amount>[+-]?[\\d,]+\\.\\d{2})(?=\\s+[\\d,]+\\.\\d{2})",
+        "transaction_termination_regex": "Account Balance Summary"
+    },
+    "german_bank": {
+        "check_tx_regex": "(?:\\|\\s*)?(?P<check>\\d+\\*?)\\s+(?:\\|\\s*)?(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?:\\|\\s*)?\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "Account\\ ?Number:\\s*([x\\d]+)",
+            "endBalance_regex": "([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 4,
+            "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance_regex": "([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "germanamerican",
+            "Financial Calculators",
+            "BUSINESS"
+        ],
+        "name": "German Bank",
+        "regex_transaction_type": "section",
+        "section_map": {
+            "check": "checkscleared",
+            "credit": "deposits",
+            "debit": "otherdebits"
+        },
+        "transaction_regex": "(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>(?!.*Statement.*Balance|.*\\d+\\s+(?:Credits|Debits).*).+?)\\s+\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "transaction_termination_regex": "DailyBalances"
     }
 }

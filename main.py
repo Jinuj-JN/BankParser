@@ -4,6 +4,10 @@ import argparse
 import os
 import json
 from docling.document_converter import DocumentConverter
+#from PIL import Image
+#import pytesseract
+#import io
+
 def parse_pdf(file_path,    isdocling=False):
     """Extract text from `file_path`, run the ParserFactory and return
     (parsed_dict | None, full_text).
