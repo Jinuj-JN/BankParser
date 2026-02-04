@@ -178,6 +178,8 @@
         "section_map": {
             "check": "checks cleared"
         },
+        "section_split_regex": "ACCT(?:\\s*|\\s+#)\\s*(\\d+)",
+        "account_name_regex": "ACCT(?:\\s*|\\s+#)\\s*(\\d+)",
         "transaction_regex": "^(?P<date>[A-Z]{3}\\d{2})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<balance>[\\d,]+\\.\\d{2})$",
         "transaction_termination_regex": "DEPOSITS, DIVIDENDS AND OTHER CREDITS"
     },
@@ -281,7 +283,7 @@
         "check_tx_regex": "(?P<date>\\d{1,2}/\\d{1,2})\\s+\\|?\\s*(?P<check>\\d+\\*?)?\\s+\\|?\\s*(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
-            "accountNumber_regex": "MEMBER #\\s+(\\d+)",
+            "accountNumber_regex": "Account Number\\s+(\\d+)",
             "endBalance_regex": "Current Balance\\s+([\\d,]+\\.\\d{2})",
             "endBalance_regex_group": 1,
             "period_regex": "STATEMENT PERIOD\\s+([\\d-]+\\s+to\\s+[\\d-]+)",
@@ -297,11 +299,13 @@
         "section_map": {
             "check": "checks in number order"
         },
-        "transaction_regex": "(?P<date>\\d{1,2}/\\d{1,2})\\s+(?P<desc>(?:(?!\\s+-?[\\d,]+\\.\\d{2}).|\\n)+)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})",
+        "transaction_regex": "^(?P<date>\\d{1,2}/\\d{1,2})\\s+(?P<desc>[^\\n]+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})$",
         "transaction_termination_regex": "Daily Balance Information"
     },
     "atltanticfcu": {
         "check_tx_regex": "(?P<check>\\d+)(?P<missing>\\*)?\\s+(?P<date>\\d{1,2}-\\d{1,2})\\s+(?P<amount>[\\d,]+\\.\\d{2})",
+        "account_name_regex": "(ID\\s+\\d+)",
+        "section_split_regex": "(?=ID\\s+\\d+)",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "ACCOUNT NUMBER\\s*\\n(\\d+)",

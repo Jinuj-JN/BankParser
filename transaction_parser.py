@@ -221,7 +221,7 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
 
         check_section = section_map.get("check", "").lower()
         found_check = False
-        
+
         if check_pattern and check_section and check_section in section_name.lower():
            
 
@@ -373,7 +373,13 @@ def parse_multi_account_statement(text, regex_config):
     
     if not split_pattern:
         print("No section split pattern defined, treating as single account statement.")
-        return parse_bank_statement_with_row(text, regex_config, "")
+        accounts_single_data = [] 
+        current_account_type = "Single Account" 
+        account_single_data = parse_bank_statement_with_row(text, regex_config, "")
+        account_single_data["accountType"] = current_account_type 
+        accounts_single_data.append(account_single_data)
+        return {"accounts": accounts_single_data} 
+        #return parse_bank_statement_with_row(text, regex_config, "")
 
     # Split the text
     sections = [s for s in re.split(split_pattern, text) if s.strip()]

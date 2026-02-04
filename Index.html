@@ -356,10 +356,10 @@
         <div id="panel-right" class="flex-1 bg-slate-50 overflow-y-auto scroller p-4 lg:p-6 relative">
             <!-- Dashboard Header & Toggle -->
             <div id="dashboard-header"
-                class="hidden sticky top-0 bg-slate-50 z-20 pb-4 flex justify-between items-center shrink-0">
+                class="sticky top-0 bg-slate-50 z-20 pb-4 flex justify-between items-center shrink-0">
                 <h3 class="text-xs font-bold text-slate-500 uppercase">Analysis Results</h3>
                 <button id="toggle-json-btn" onclick="ui.toggleRightView()"
-                    class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai transition-all">
+                    class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai transition-all ml-auto">
                     <i class="fa-solid fa-code mr-1"></i> View JSON
                 </button>
             </div>
@@ -816,8 +816,6 @@
                 });
             },
 
-            // openPreview and closePreview removed (embedded in main layout)
-
             clearFile: () => {
                 // Reset file input
                 const uploader = document.getElementById('pdf-upload');
@@ -855,7 +853,6 @@
                 document.getElementById('json-output').innerText = "";
             },
 
-
             init: () => {
                 app.loadAiSettings(); // Load AI settings first
                 const firstConfigKey = Object.keys(DefaultConfigs)[0];
@@ -889,7 +886,6 @@
                 app.currentFile = file;
                 app.currentPdfUrl = URL.createObjectURL(file);
 
-                // Update UI
                 // Update UI
                 document.getElementById('file-name').innerText = file.name;
                 document.getElementById('upload-prompt').classList.add('hidden');
@@ -970,17 +966,237 @@
                 }
             },
 
-            loadSample: (type) => {
-                const samples = {
-                    lili: `--- PAGE 1 ---\n"Account Number","Statement Period"\n"260102978186","1 Aug 2025-31 Aug, 2025"\n\n"Summary","Amount"\n"Beginning balance on 1 Aug, 2025","+$20,789.62"\n"Ending balance on 31 Aug, 2025","+$18,699.20"\n\n"Date","Check","Description","Deposits","Withdrawals","Ending Day Balance"\n"8/4/2025","4315\n\n\nPayroll Check J. McNally Ref#612448969\n",,"\n$2,500.00\n",\n"8/6/2025","65652\n\n\nMobile Check Deposit Knightolic Ref# 265446825\n","\n$27,560.00\n",,"\n$34,194.32\n"`,
-                    fm: `--- PAGE 1 ---\nFM BANK\n"Date","10/31/25"\n"Account No.","16114779"\n"Beginning Balance","1,349.27"\n"Ending Balance","925.20"\n"Checks In Number Order"\n"10/06","1170","420.08"\n"10/06","1171","400.00"`,
-                    chase: `JPMorgan Chase Bank, N.A.\nAccount Number: 1234567890\nOctober 01, 2025 to October 31, 2025\nBeginning Balance $1,234.56\nEnding Balance $2,345.67\n10/05 PAYROLL DEPOSIT 1,000.00 2,234.56\n10/10 RENT PAYMENT -800.00 1,434.56`,
-                    boa: `Bank of America, N.A. Preferred Rewards\nAccount number: 987654321012\nOctober 01, 2025 through October 31, 2025\nBeginning balance on Oct 01, 2025: $5,000.00\nEnding balance on Oct 31, 2025: $4,500.00\n10/15/25 CHECK #101 200.00\n10/20/25 ATM WITHDRAWAL 300.00`
-                };
-                app.currentText = samples[type];
-                document.getElementById('raw-input').value = app.currentText;
-                app.currentConfig = DefaultConfigs[type];
-                document.getElementById('config-editor').value = JSON.stringify(app.currentConfig, null, 2);
+            runParser: async () => {
+                const textSnippet = document.getElementById('raw-input').value;
+                if (!textSnippet) return ui.notify("No text to parse", "warning");
+
+                const regexPattern = JSON.parse(document.getElementById('config-editor').value) || null;
+                
+                try {                    
+                    const res = await fetch('http://127.0.0.1:5000/parse_transactions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: textSnippet, regex_pattern: regexPattern })
+                    });
+                    
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        throw new Error(errorData.error || 'Unknown error');
+                    }
+                    
+                    const data = await res.json();
+                    
+                    // Standardize data structure to multi-account format
+                    let standardizedData = data;
+                    if (!data.result || !data.result.accounts) {
+                        // Convert to multi-account format (single account in array)
+                        standardizedData = {
+                            result: {
+                                accounts: [{
+                                    accountType: "Parsed",
+                                    fields: {
+                                        bankName: "Parsed Bank",
+                                        accountNumber: data.fields?.accountNumber || "N/A",
+                                        period: data.fields?.period || "N/A",
+                                        startBalance: data.fields?.startBalance || "0.00",
+                                        endBalance: data.fields?.endBalance || "0.00"
+                                    },
+                                    summary: data.summary || {
+                                        creditCount: 0,
+                                        credits: "0.00",
+                                        debitCount: 0,
+                                        debits: "0.00"
+                                    },
+                                    transactions: data.transactions || []
+                                }]
+                            }
+                        };
+                    }
+                    
+                    app.parsedData = standardizedData;
+                    app.renderDashboard(standardizedData);
+                    
+                } catch (e) {
+                    console.error(e);
+                    ui.notify("Server-side parsing failed. " + e.message, "error");
+                }
+            },
+
+            renderDashboard: (data) => {
+                // Ensure data has the standard structure
+                let standardizedData = data;
+                
+                // If data already has result.accounts structure, use it as-is
+                if (!data.result || !data.result.accounts) {
+                    // Convert single account to multi-account format
+                    standardizedData = {
+                        result: {
+                            accounts: [{
+                                accountType: "Unknown",
+                                fields: data.fields || {},
+                                summary: data.summary || {},
+                                transactions: data.transactions || []
+                            }]
+                        }
+                    };
+                }
+                
+                // Now standardizedData always has result.accounts structure
+                const accounts = standardizedData.result.accounts;
+                
+                // Hide empty state, show dashboard and header
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('dashboard-header').classList.remove('hidden');
+                
+                // If multiple accounts, add account selector
+                if (accounts.length > 1) {
+                    // Create or update account selector
+                    let selectorHtml = `
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400 font-bold">Account:</span>
+                            <select id="account-selector" class="text-xs border border-slate-200 rounded px-2 py-1 bg-white" 
+                                    onchange="app.switchAccount(this.value)">
+                    `;
+                    
+                    accounts.forEach((account, index) => {
+                        const accountNum = account.fields?.accountNumber || `Account ${index + 1}`;
+                        const accountType = account.accountType || "Unknown";
+                        selectorHtml += `<option value="${index}">${accountNum} (${accountType})</option>`;
+                    });
+                    
+                    selectorHtml += `</select></div>`;
+                    
+                    // Update the dashboard header to include selector
+                    const header = document.getElementById('dashboard-header');
+                    header.innerHTML = `
+                        <div class="flex items-center justify-between w-full">
+                            <div class="flex items-center gap-4">
+                                <h3 class="text-xs font-bold text-slate-500 uppercase">Analysis Results</h3>
+                                ${selectorHtml}
+                            </div>
+                            <button id="toggle-json-btn" onclick="ui.toggleRightView()"
+                                class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai transition-all ml-auto">
+                                <i class="fa-solid fa-code mr-1"></i> View JSON
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    // Single account - standard header
+                    document.getElementById('dashboard-header').innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase">Analysis Results</h3>
+                            <button id="toggle-json-btn" onclick="ui.toggleRightView()"
+                                class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-bold shadow-sm hover:border-brand-ai hover:text-brand-ai transition-all ml-auto">
+                                <i class="fa-solid fa-code mr-1"></i> View JSON
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                // Display first account by default
+                app.displayAccount(0, accounts);
+                
+                // Update JSON output to show all accounts
+                document.getElementById('json-output').innerText = JSON.stringify(standardizedData, null, 2);
+            },
+
+            // Helper function to display a specific account
+            displayAccount: (index, accounts) => {
+                const account = accounts[index];
+                
+                if (!account) return;
+                
+                // Update dashboard with account data
+                document.getElementById('disp-bank-name').innerText = account.fields?.bankName || "Unknown Bank";
+                document.getElementById('disp-acct-num').innerText = account.fields?.accountNumber || "--";
+                document.getElementById('disp-period').innerText = account.fields?.period || "--";
+
+                // Stats
+                document.getElementById('val-start-bal').innerText = account.fields?.startBalance || "0.00";
+                document.getElementById('val-end-bal').innerText = account.fields?.endBalance || "0.00";
+                document.getElementById('val-credits').innerText = "$" + (account.summary?.credits || "0.00");
+                document.getElementById('val-debits').innerText = "$" + (account.summary?.debits || "0.00");
+
+                document.getElementById('count-credits').innerText = (account.summary?.creditCount || 0) + " txns";
+                document.getElementById('count-debits').innerText = (account.summary?.debitCount || 0) + " txns";
+
+                // Table
+                const transactions = account.transactions || [];
+                const tbody = document.getElementById('tx-body');
+                document.getElementById('tx-count').innerText = transactions.length + " items";
+                
+                tbody.innerHTML = transactions.map(t => `
+                    <tr>
+                        <td class="p-4 bg-white font-mono text-xs">${t.date || "--"}</td>
+                        <td class="p-4 bg-white font-medium">${t.desc || "--"}</td>
+                        <td class="p-4 bg-white text-xs capitalize">
+                            <span class="px-2 py-1 rounded-full font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">
+                                ${t.type || "unknown"}
+                            </span>
+                        </td>
+                        <td class="p-4 bg-white text-right font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">
+                            ${t.amount || "0.00"}
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Charts
+                app.renderCharts(account);
+            },
+
+            // Function to handle account switching
+            switchAccount: (index) => {
+                if (app.parsedData && app.parsedData.result && app.parsedData.result.accounts) {
+                    app.displayAccount(parseInt(index), app.parsedData.result.accounts);
+                }
+            },
+
+            renderCharts: (account) => {
+                if (app.chartInstances.bal) app.chartInstances.bal.destroy();
+                if (app.chartInstances.flow) app.chartInstances.flow.destroy();
+
+                const transactions = account.transactions || [];
+                
+                app.chartInstances.bal = new Chart(document.getElementById('chart-balance'), {
+                    type: 'line',
+                    data: {
+                        labels: transactions.map(t => t.date),
+                        datasets: [{
+                            label: 'Balance',
+                            data: transactions.map(t => t.balance || 0),
+                            borderColor: '#8b5cf6',
+                            tension: 0.4,
+                            pointRadius: 2
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { display: false } }, 
+                        scales: { x: { display: false } } 
+                    }
+                });
+
+                app.chartInstances.flow = new Chart(document.getElementById('chart-flow'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['In', 'Out'],
+                        datasets: [{
+                            data: [
+                                account.summary?.credits || 0, 
+                                Math.abs(account.summary?.debits || 0)
+                            ],
+                            backgroundColor: ['#10b981', '#ef4444'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { display: false } } 
+                    }
+                });
             },
 
             saveConfig: () => {
@@ -1034,140 +1250,6 @@
                 } catch (e) {
                     ui.notify("Invalid JSON in config editor. Cannot save.\n" + e.message, "error");
                 }
-            },
-
-            runParser: async () => {
-                const textSnippet = document.getElementById('raw-input').value;
-                if (!textSnippet) return ui.notify("No text to parse", "warning");
-
-                const regexPattern = JSON.parse(document.getElementById('config-editor').value) || null;
-                // Use backend Python parser for transactions
-                let result = {
-                    bank: app.currentConfig?.name || "Unknown Bank",
-                    accountNumber: "N/A",
-                    period: "N/A",
-                    customer: {},
-                    summary: { start: 0, end: 0, credits: 0, debits: 0 },
-                    transactions: []
-                };
-                try {                    
-                    const res = await fetch('http://127.0.0.1:5000/parse_transactions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: textSnippet, regex_pattern: regexPattern })
-                    });
-                    if (!res.ok) {
-                        const errorData = await res.json();
-                        throw new Error(errorData.error || 'Unknown error');
-                    }
-                    const data1 = await res.json();
-                    data=data1.result;
-                    //ui.notify(JSON.stringify(data));
-                    result.transactions = data.transactions || [];
-                    // Calculate summary
-                    result.summary.credits = result.transactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-                    result.summary.debits = result.transactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
-                    if (result.transactions.length > 0) {
-                        result.summary.start = result.transactions[0].balance || 0;
-                        result.summary.end = result.transactions[result.transactions.length - 1].balance || 0;
-                    }
-                    app.parsedData = data;
-                } catch (e) {
-                    console.error(e);
-                    ui.notify("Server-side parsing failed. " + e.message, "error");
-                    app.parsedData = result;
-                }
-
-                // If it's a manual text parse (not a fresh PDF upload), we can still try to hit the server
-                // However, the current /parse endpoint expects a file. 
-                // For now, we'll keep the client-side Parser.execute as the primary for manual text edits 
-                // OR we could add a /parse_text endpoint to api.py.
-                // Let's stick to client-side fallback for manual edits for now to avoid breaking the flow,
-                // but we'll prioritize server results from handleFileUpload.
-
-                try {
-                    console.log("Running client-side parser fallback...");
-                    // const data = Parser.execute(textSnippet, app.currentConfig);
-                    //app.parsedData = data;
-                    app.renderDashboard(data);
-                } catch (e) {
-                    console.error(e);
-                    ui.notify("Parsing failed. " + e.message, "error");
-                }
-            },
-
-            renderDashboard: (data) => {
-                document.getElementById('empty-state').style.display = 'none';
-                document.getElementById('dashboard').classList.remove('hidden');
-
-                // Header
-                document.getElementById('disp-bank-name').innerText = data.fields.bankName;
-                document.getElementById('disp-acct-num').innerText = data.fields.accountNumber;
-                document.getElementById('disp-period').innerText = data.fields.period;
-
-                // // Stats
-                document.getElementById('val-start-bal').innerText =  data.fields.startBalance;
-                document.getElementById('val-end-bal').innerText = data.fields.endBalance;
-                document.getElementById('val-credits').innerText = "$" + data.summary.credits;
-                document.getElementById('val-debits').innerText = "$" +data.summary.debits;
-
-                document.getElementById('count-credits').innerText = data.summary.creditCount + " txns";
-                document.getElementById('count-debits').innerText =  data.summary.debitCount + " txns";
-
-                // Table
-                const tbody = document.getElementById('tx-body');
-                document.getElementById('tx-count').innerText = data.transactions.length + " items";
-                tbody.innerHTML = data.transactions.map(t => `
-                    <tr>
-                        <td class="p-4 bg-white font-mono text-xs">${t.date}</td>
-                        <td class="p-4 bg-white font-medium">${t.desc}</td>
-                        <td class="p-4 bg-white text-xs capitalize"><span class="px-2 py-1 rounded-full font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${t.type}</span></td>
-
-                        <td class="p-4 bg-white text-right font-bold ${t.type === 'credit' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}">${t.amount}</td>
-                       
-                    </tr>
-                `).join('');
-
-                // Charts
-                app.renderCharts(data);
-
-                // Update JSON Output
-                document.getElementById('json-output').innerText = JSON.stringify(data, null, 2);
-                document.getElementById('dashboard-header').classList.remove('hidden');
-                
-            },
-
-            renderCharts: (data) => {
-                if (app.chartInstances.bal) app.chartInstances.bal.destroy();
-                if (app.chartInstances.flow) app.chartInstances.flow.destroy();
-
-                app.chartInstances.bal = new Chart(document.getElementById('chart-balance'), {
-                    type: 'line',
-                    data: {
-                        labels: data.transactions.map(t => t.date),
-                        datasets: [{
-                            label: 'Balance',
-                            data: data.transactions.map(t => t.balance || 0),
-                            borderColor: '#8b5cf6',
-                            tension: 0.4,
-                            pointRadius: 2
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false } } }
-                });
-
-                app.chartInstances.flow = new Chart(document.getElementById('chart-flow'), {
-                    type: 'bar',
-                    data: {
-                        labels: ['In', 'Out'],
-                        datasets: [{
-                            data: [data.summary.credits, Math.abs(data.summary.debits)],
-                            backgroundColor: ['#10b981', '#ef4444'],
-                            borderRadius: 8
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                });
             }
         };
 
