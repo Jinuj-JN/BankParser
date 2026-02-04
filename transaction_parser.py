@@ -220,10 +220,10 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     # ----------------------------------------------------
 
         check_section = section_map.get("check", "").lower()
-        #if check_pattern and "checks paid" in section_name.lower():
+        found_check = False
+        
         if check_pattern and check_section and check_section in section_name.lower():
            
-           found_check = False
 
            for m in check_pattern.finditer(line):
                 if m:
@@ -243,9 +243,10 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                     "amount": f"-{amount:.2f}",
                     "type": "check",
                     "section": section_name.replace(" ", "_").lower()
-            })
-                if found_check:
-                  continue  # 🚨 prevents double parsing
+                    })
+                    
+        if found_check:
+              continue  # 🚨 prevents double parsing
 
     # ----------------------------------------------------
     # 1️⃣ COLUMN-BASED (Debit / Credit columns)
@@ -333,13 +334,13 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
 def parse_bank_statement(text, regex_config):
     accountNumber_regex = regex_config["fields"]["accountNumber_regex"]
     print("Using account number regex:", accountNumber_regex)
-    peiod_regex = regex_config["fields"]["period_regex"]
+    period_regex = regex_config["fields"]["period_regex"]
     startBal_regex = regex_config["fields"]["startBalance_regex"]
     endBal_regex = regex_config["fields"]["endBalance_regex"]
 
     accpattern = re.compile(accountNumber_regex)
     accmatches = accpattern.findall(text)
-    period= re.search(peiod_regex, text)
+    period= re.search(period_regex, text)
 
     startbalpattern = re.compile(startBal_regex)
     startbalmatches = startbalpattern.findall(text)
@@ -349,6 +350,7 @@ def parse_bank_statement(text, regex_config):
     stbal=startbalmatches[regex_config["fields"]["startBalance_regex_group"]] if startbalmatches else "0.00"
     endbal=endbalmatches[regex_config["fields"]["endBalance_regex_group"]] if endbalmatches else "0.00"
     return {
+        "bankName": regex_config["name"],
         "accountNumber": accmatches[regex_config["fields"]["accountNumber_group"]] if accmatches else "",
         "period": period.group(1) if period else "",
         "startBalance":  stbal ,
