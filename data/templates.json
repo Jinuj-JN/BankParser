@@ -103,10 +103,8 @@
             "startBalance_regex_group": 0
         },
         "identifiers": [
-            "SAFE CREDIT UNION",
-            "safecu.org",
-            "2295 Iron Point Road",
-            "Member Number:"
+            "MemberNumber:",
+            "BUSINESSCHECKING"
         ],
         "name": "safecreditunion",
         "regex_transaction_type": "row",
@@ -158,15 +156,16 @@
         "transaction_termination_regex": "--DAILY BALANCE SUMMARY-"
     },
     "dcu": {
+        "account_name_regex": "ACCT(?:\\s*|\\s+#)\\s*(\\d+)",
         "check_tx_regex": "(?P<check>\\d{3,})\\s+(?P<date>[A-Z]{3}\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "[A-Z]+\\s+[A-Z]+.*?ACCT#\\s*(\\d+)",
             "endBalance_regex": "NEW BALANCE\\s+([\\d,]+\\.\\d{2})",
-            "endBalance_regex_group": 1,
+            "endBalance_regex_group": 0,
             "period_regex": "STATEMENT PERIOD\\s+([\\d-]+\\s+to\\s+[\\d-]+)",
             "startBalance_regex": "PREVIOUS BALANCE\\s+([\\d,]+\\.\\d{2})",
-            "startBalance_regex_group": 1
+            "startBalance_regex_group": 0
         },
         "identifiers": [
             "Digital Federal Credit Union",
@@ -179,7 +178,6 @@
             "check": "checks cleared"
         },
         "section_split_regex": "ACCT(?:\\s*|\\s+#)\\s*(\\d+)",
-        "account_name_regex": "ACCT(?:\\s*|\\s+#)\\s*(\\d+)",
         "transaction_regex": "^(?P<date>[A-Z]{3}\\d{2})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<balance>[\\d,]+\\.\\d{2})$",
         "transaction_termination_regex": "DEPOSITS, DIVIDENDS AND OTHER CREDITS"
     },
@@ -238,10 +236,10 @@
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Member Number:\\s*X+([0-9]+)",
-            "endBalance_regex": "Ending Balance\\s*\"\\s*,?\\s*\"\\s*([\\d,]+\\.\\d{2})",
+            "endBalance_regex": "Ending Balance\\s+([\\d,]+\\.\\d{2})",
             "endBalance_regex_group": 0,
             "period_regex": "Activity from ([0-9-]{10})-([0-9-]{10})",
-            "startBalance_regex": "Beginning Balance\\s*\"\\s*,?\\s*\"\\s*([\\d,]+\\.\\d{2})",
+            "startBalance_regex": "Beginning Balance\\s+([\\d,]+\\.\\d{2})",
             "startBalance_regex_group": 0
         },
         "identifiers": [
@@ -347,7 +345,7 @@
         "regex_transaction_type": "section",
         "section_map": {
             "check": "checkscleared",
-            "credit": "deposits",
+            "credit": "othercredits",
             "debit": "otherdebits"
         },
         "transaction_regex": "(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>(?!.*Statement.*Balance|.*\\d+\\s+(?:Credits|Debits).*).+?)\\s+\\$(?P<amount>[\\d,]+\\.\\d{2})",

@@ -1,6 +1,16 @@
 import re
 import json
 import os
+
+def parse_account_statement_with_sections(txtStatement, regex_config):
+    accounts_single_data = [] 
+    current_account_type = "Section Account" 
+    account_single_data = parse_bank_statement_with_sections(txtStatement, regex_config)
+    account_single_data["accountType"] = current_account_type 
+    accounts_single_data.append(account_single_data)
+    return {"accounts": accounts_single_data}
+
+
 def parse_bank_statement_with_sections(txtStatement, regex_config):
     """
     Parses bank statements with sectioned transaction blocks (e.g., CBT style), using section headers to determine credit/debit and sign.

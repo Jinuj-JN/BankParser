@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-from transaction_parser import parse_bank_statement_with_row,parse_bank_statement_with_sections,parse_multi_account_statement
+from transaction_parser import parse_bank_statement_with_row,parse_bank_statement_with_sections,parse_multi_account_statement,parse_account_statement_with_sections
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import tempfile
@@ -209,7 +209,8 @@ def parse_transactions_endpoint():
     if regex["regex_transaction_type"] == "row":
         txns = parse_multi_account_statement(statement_text, regex_config=regex if regex else None)
     else:
-        txns= parse_bank_statement_with_sections(statement_text, regex_config=regex if regex else None)
+        #txns= parse_bank_statement_with_sections(statement_text, regex_config=regex if regex else None)
+        txns= parse_account_statement_with_sections(statement_text, regex_config=regex if regex else None)
     return jsonify({'result': txns})
 
 if __name__ == '__main__':
