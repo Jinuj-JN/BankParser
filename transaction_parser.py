@@ -214,10 +214,6 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
         if not line.strip():
             continue
         line_lower = line.lower()
-
-        #if "checks paid" in line_lower:
-            #section_name="checks paid"
-            #continue
         
         for section_id, header in section_map.items():
             if re.search(rf"\b{re.escape(header.lower())}\b", line_lower):
@@ -269,8 +265,8 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                 #credit = m.group("credit")
 
                 groups = m.groupdict()
-                debit = groups.get("debit")
-                credit = groups.get("credit")
+                debit = groups.get("debit") or groups.get("withdrawal")
+                credit = groups.get("credit") or groups.get("deposit")
 
                 if credit and credit.strip():
                     amount = to_float(credit)

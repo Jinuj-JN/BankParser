@@ -90,9 +90,6 @@
         "transaction_termination_regex": "checkingaccountdailybalances"
     },
     "safecreditunion": {
-        "credit_summary_regex": "Deposits:\\s*([\\d,]+\\.\\d{2})",
-        "date_format": "MM/DD/YY",
-        "debit_summary_regex": "Withdrawals/Checks Paid:\\s*([\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "AccountNumber:\\s*([\\d]+)",
@@ -111,6 +108,8 @@
         "transaction_regex": "^(?P<date>\\d{2}-\\d{2})\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)"
     },
     "suncoastcreditunion": {
+        "account_name_regex": "Suffix\\s+(\\d{4})",
+        "section_split_regex": "Suffix\\s+(\\d{4})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Member Number:\\s*(\\d+)",
@@ -181,6 +180,33 @@
         "transaction_regex": "^(?P<date>[A-Z]{3}\\d{2})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<balance>[\\d,]+\\.\\d{2})$",
         "transaction_termination_regex": "DEPOSITS, DIVIDENDS AND OTHER CREDITS"
     },
+    "ascend": {
+        "account_name_regex": "#\\s*ID\\s+(\\d+)\\s*-\\s*([A-Z\\s]+)",
+        "check_tx_regex": "(?P<check>\\d{3,})\\s+(?P<date>[A-Z]{3}\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "Member Number:\\s*(\\w+)",
+            "endBalance_regex": "Ending Balance\\s+([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 0,
+            "period_regex": "STATEMENT PERIOD\\s+([\\d-]+\\s+to\\s+[\\d-]+)",
+            "startBalance_regex": "Balance Forward\\s+([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "Ascend Federal Credit Union",
+            "memberservice@ascend.org",
+            "Member Number:"
+        ],
+        "name": "ascend",
+        "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checks cleared"
+        },
+        "section_split_regex": "#\\s*ID\\s+(\\d+)\\s*-\\s*([A-Z\\s]+)",
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)$",
+        "transaction_regex_columns": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<deposit>[\\d,]*\\.?\\d{0,2})\\s+(?P<withdrawal>[\\d,]*\\.?\\d{0,2})\\s+(?P<desc>.+?)\\s+(?P<balance>[\\d,]+\\.\\d{2})$",
+        "transaction_termination_regex": "TOTAL ACCOUNT YEAR TO DATE INFORMATION"
+    },
     "homebank": {
         "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d+)\\*?\\s+\\$?(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
@@ -230,9 +256,6 @@
     },
     "americu": {
         "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d{4,6})\\*?\\s+(?P<amount>[\\d,]+\\.\\d{2})",
-        "credit_summary_regex": "Total Credits/Deposits\\s*\"\\s*,?\\s*\"\\s*([\\d,]+\\.\\d{2})",
-        "date_format": "MM-DD-YYYY",
-        "debit_summary_regex": "Total Debits/Checks\\s*\"\\s*,?\\s*\"\\s*(-?[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Member Number:\\s*X+([0-9]+)",
@@ -261,9 +284,8 @@
             "Account Statement",
             "Member Number"
         ],
-        "date_format": "MM/DD/YYYY",
-        "section_split_regex": "(?=BUSINESS .* Suffix \\d+)",
-        "account_name_regex": "(BUSINESS .* Suffix \\d+)",
+        "section_split_regex": "(?=[A-Z][A-Z\\s]+Suffix\\s+\\d{4})",
+        "account_name_regex": "(?=[A-Z][A-Z\\s]+Suffix\\s+\\d{4})",
         "fields": {
             "accountNumber_regex": "Member Number:\\s*([0-9]+)",
             "period_regex": "([0-9]{2}/[0-9]{2}/[0-9]{4}) - ([0-9]{2}/[0-9]{2}/[0-9]{4})",
