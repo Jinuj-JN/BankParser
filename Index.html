@@ -423,6 +423,15 @@
                         </div>
                         <p id="val-debits" class="text-sm font-bold text-red-600 mt-1">--</p>
                     </div>
+                    <div
+                        class="p-3 bg-white rounded-lg border border-slate-200 shadow-sm border-b-2 border-b-yellow-500">
+                        <div class="flex justify-between items-center">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Fees</p>
+                            <span id="count-fees"
+                                class="text-[9px] font-bold text-emerald-500 bg-yellow-50 px-1 rounded">0 txns</span>
+                        </div>
+                        <p id="val-fees" class="text-sm font-bold text-yellow-600 mt-1">--</p>
+                    </div>
                 </div>
 
                 <!-- 4. Charts -->
@@ -1120,6 +1129,9 @@
 
                 document.getElementById('count-credits').innerText = (account.summary?.creditCount || 0) + " txns";
                 document.getElementById('count-debits').innerText = (account.summary?.debitCount || 0) + " txns";
+                
+                //fees
+                document.getElementById('val-fees').innerText = "$" + (account.summary?.fees || "0.00");
 
                 // Table
                 const transactions = account.transactions || [];

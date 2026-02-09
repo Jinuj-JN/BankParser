@@ -195,10 +195,56 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
 
     # 3. Extract Transactions
     transactions = []
+    total_fee_calc=0.0
     total_credit_calc = 0.0
     total_debit_calc = 0.0
     creditCount = 0
     debitCount = 0
+
+    seen = set()
+
+#-------deduplication logic------------------ 
+    def normalize_desc(desc: str) -> str:
+        return re.sub(r"\s+", " ", desc).strip().lower()
+
+    def normalize_amount(amount: str) -> str:
+        try:
+            return f"{float(str(amount).replace('$','').replace(',','')):.2f}"
+        except ValueError:
+            return "0.00"
+
+    def tx_key(date, desc, amount, transtype):
+        return (
+            date,
+            normalize_desc(desc),
+            normalize_amount(amount),
+            transtype
+        )
+#-------------------------------------------------------------------------------
+
+#---- Helper method to add transaction-------------------------------------------
+    def commit_tx(tx, amount, transtype):
+        nonlocal total_credit_calc, total_debit_calc, total_fee_calc
+        nonlocal creditCount, debitCount
+
+        key = tx_key(tx["date"], tx["desc"], tx["amount"], transtype)
+        if key in seen:
+            return False
+
+        seen.add(key)
+        transactions.append(tx)
+
+        if transtype == "credit":
+            total_credit_calc += amount
+            creditCount += 1
+        elif transtype in ("debit", "check"):
+            total_debit_calc += amount
+            debitCount += 1
+        elif transtype == "fee":
+            total_fee_calc += amount
+
+        return True
+#-------------------------------------------------------------------------------
 
     clean_text = '\n'.join(line.strip() for line in text.splitlines())
 
@@ -239,20 +285,56 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                     amount = to_float(m.group("amount"))
 
         # Checks are always debits
-                if found_check:
-                    total_debit_calc += amount
-                    debitCount += 1
+                #if found_check:
+                    #total_debit_calc += amount
+                    #debitCount += 1
 
-                    transactions.append({
-                    "date": date_raw.replace("-", "/"),
-                    "desc": f"CHECK {check_no}",
-                    "amount": f"-{amount:.2f}",
-                    "type": "check",
-                    "section": section_name.replace(" ", "_").lower()
-                    })
-                    
+                    #transactions.append({
+                    #"date": date_raw.replace("-", "/"),
+                    #"desc": f"CHECK {check_no}",
+                    #"amount": f"-{amount:.2f}",
+                    #"type": "check",
+                    #"section": section_name.replace(" ", "_").lower()
+                    #})
+
+#------------------deduplication logic added-----------------------------------------------
+                if found_check:
+                    tx = {
+                            "date": date_raw.replace("-", "/"),
+                            "desc": f"CHECK {check_no}",
+                            "amount": f"-{amount:.2f}",
+                            "type": "check",
+                            "section": section_name.replace(" ", "_").lower()
+                        }
+
+                    key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
+                    if key not in seen:
+                        seen.add(key)
+                        total_debit_calc += amount
+                        debitCount += 1
+                        transactions.append(tx)
+#-----------------------------------------------------------------------------------------------                    
         if found_check:
               continue  # 🚨 prevents double parsing
+
+    #
+    # Fee section
+    #
+        
+        fee_cfg = regex_config.get("fee", {})
+        fee_enabled = fee_cfg.get("FeeEnabled", False)
+
+        is_fee_transaction = False
+
+        if fee_enabled:
+            is_fee = any(k in line_lower for k in fee_cfg.get("FeeKeywords", []))
+            is_bank_fee = any(k in line_lower for k in fee_cfg.get("BankFeeIndicators", []))
+            is_merchant_fee = any(k in line_lower for k in fee_cfg.get("MerchantIndicators", []))
+
+            is_fee_transaction = (
+            is_fee and
+            (is_bank_fee or not is_merchant_fee)
+            )
 
     # ----------------------------------------------------
     # 1️⃣ COLUMN-BASED (Debit / Credit columns)
@@ -261,35 +343,58 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
         if column_pattern:
             m = column_pattern.match(line)
             if m:
-                #debit = m.group("debit")
-                #credit = m.group("credit")
-
+                
                 groups = m.groupdict()
                 debit = groups.get("debit") or groups.get("withdrawal")
                 credit = groups.get("credit") or groups.get("deposit")
 
                 if credit and credit.strip():
                     amount = to_float(credit)
-                    transtype = "credit"
-                    total_credit_calc += amount
-                    creditCount += 1
+                    
+                    if is_fee_transaction:
+                        transtype = "fee"    
+                        total_fee_calc += amount
+                    else:    
+                        transtype = "credit"
+                        total_credit_calc += amount
+                        creditCount += 1
 
                 elif debit and debit.strip():
                     amount = to_float(debit)
-                    transtype = "debit"
-                    total_debit_calc += amount
-                    debitCount += 1
+                    
+                    if is_fee_transaction:
+                        transtype = "fee"    
+                        total_fee_calc += amount
+                    else:    
+                        transtype = "debit"
+                        total_debit_calc += amount
+                        debitCount += 1
 
                 else:
                     continue  # safety
 
-                transactions.append({
-                    "date": m.group("date"),
-                    "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
-                    "amount": f"{amount:.2f}",
-                    "type": transtype,
-                    "section": section_name.replace(" ", "_").lower()
-                })
+                #transactions.append({
+                #    "date": m.group("date"),
+                #    "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
+                #    "amount": f"{amount:.2f}",
+                #    "type": transtype,
+                #    "section": section_name.replace(" ", "_").lower()
+                #})
+
+#------------------deduplication logic added-----------------------------------------------
+                tx = {
+                        "date": date_raw.replace("-", "/"),
+                        "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
+                        "amount": f"-{amount:.2f}",
+                        "type": transtype,
+                        "section": section_name.replace(" ", "_").lower()
+                    }
+
+                key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
+                if key not in seen:
+                    seen.add(key)
+                    transactions.append(tx)
+#-----------------------------------------------------------------------------------------------                   
                 continue  # 🚨 critical (prevents double parsing)
 
 
@@ -309,21 +414,47 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
             amount_float = to_float(amount_str)
 
             if amount_float > 0:
-                transtype = "credit"
-                total_credit_calc += amount_float
-                creditCount += 1
+                
+                if is_fee_transaction:
+                    transtype = "fee"
+                    total_fee_calc += amount_float
+                else:
+                    transtype = "credit"
+                    total_credit_calc += amount_float
+                    creditCount += 1
             else:
-                transtype = "debit"
-                total_debit_calc += amount_float
-                debitCount += 1
 
-            transactions.append({
-                "date": date_raw,
-                "desc": re.sub(r"\s+", " ", desc_raw).strip(),
-                "amount": amount_str,
-                "type": transtype,
-                "section": section_name.replace(" ", "_").lower()
-            })
+                if is_fee_transaction:
+                    transtype = "fee"
+                    total_fee_calc += amount_float
+                else:
+                    transtype = "debit"
+                    total_debit_calc += amount_float
+                    debitCount += 1
+                    
+
+            #transactions.append({
+            #    "date": date_raw,
+            #    "desc": re.sub(r"\s+", " ", desc_raw).strip(),
+            #    "amount": amount_str,
+            #    "type": transtype,
+            #    "section": section_name.replace(" ", "_").lower()
+            #})
+
+#------------------deduplication logic added-----------------------------------------------
+            tx = {
+                    "date": date_raw.replace("-", "/"),
+                    "desc": re.sub(r"\s+", " ", desc_raw).strip(),
+                    "amount": amount_str,
+                    "type": transtype,
+                    "section": section_name.replace(" ", "_").lower()
+                }
+
+            key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
+            if key not in seen:
+                seen.add(key)
+                transactions.append(tx)
+#-----------------------------------------------------------------------------------------------
     
     # 5. Build Final JSON
     output = { 
@@ -332,7 +463,8 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
             "debits": f"{total_debit_calc:,.2f}",
             "credits": f"{total_credit_calc:,.2f}",
             "debitCount": debitCount,
-            "creditCount": creditCount
+            "creditCount": creditCount,
+            "fees": f"{total_fee_calc:,.2f}"
         },
         "transactions": transactions        
     }

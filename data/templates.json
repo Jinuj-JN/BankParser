@@ -17,7 +17,39 @@
         ],
         "name": "lili",
         "regex_transaction_type": "row",
-        "transaction_regex": "^\\s*(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\S+\\s+(?P<desc>.+?)\\s+(?P<amount>\\$-?[\\d,]+\\.\\d{2})(?=\\s*\\$-?[\\d,]+\\.\\d{2})"
+        "transaction_regex": "^\\s*(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+\\S+\\s+(?P<desc>.+?)\\s+(?P<amount>\\$-?[\\d,]+\\.\\d{2})(?=\\s*\\$-?[\\d,]+\\.\\d{2})",
+        "fee":{
+        "FeeEnabled": true,
+        "FeeKeywords": [
+        "atm fee",
+        "wire fee",
+        "service fee",
+        "monthly fee",
+        "maintenance fee",
+        "plan fee",
+        "out-of-network",
+        "foreign transaction fee"
+        ],
+        "BankFeeIndicators": [
+        "lili",
+        "bank",
+        "checking",
+        "savings",
+        "account",
+        "statement"
+        ],
+        "MerchantIndicators": [
+        "membership",
+        "subscription",
+        "monthly plan",
+        "annual plan",
+        ".com",
+        "www",
+        "inc",
+        "llc",
+        "store"
+        ]
+      }
     },
     "cbt": {
         "check_tx_regex": "(?P<date>\\d{1,2}/\\d{2})\\s+(?P<check>\\d+(?:\\s*[A-Z])?\\*?)\\s+(?P<amount>[\\d,]+\\.\\d{2})",
@@ -372,5 +404,57 @@
         },
         "transaction_regex": "(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>(?!.*Statement.*Balance|.*\\d+\\s+(?:Credits|Debits).*).+?)\\s+\\$(?P<amount>[\\d,]+\\.\\d{2})",
         "transaction_termination_regex": "DailyBalances"
+    },
+    "associated_bank": {
+        "check_tx_regex": "(?:\\|\\s*)?(?P<check>\\d+\\*?)\\s+(?:\\|\\s*)?(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?:\\|\\s*)?\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "Account\\ ?Number:\\s*([x\\d]+)",
+            "endBalance_regex": "([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 4,
+            "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance_regex": "([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "Associated Bank"
+        ],
+        "name": "Associated Bank",
+        "regex_transaction_type": "section",
+        "section_map": {
+            "check": "checkspaid",
+            "credit": "depositsandotheradditions",
+            "debit": "withdrawalsandotherdeductions"
+        },
+        "transaction_regex": "(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>(?!.*Statement.*Balance|.*\\d+\\s+(?:Credits|Debits).*).+?)\\s+\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "transaction_termination_regex": "Balance Summary"
+    },
+    "wafd_bank": {
+        "check_tx_regex": "(?:\\|\\s*)?(?P<check>\\d+\\*?)\\s+(?:\\|\\s*)?(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?:\\|\\s*)?\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "Account\\ ?Number:\\s*([x\\d]+)",
+            "endBalance_regex": "Ending Balance([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 4,
+            "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance_regex": "Begining Balance([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "WA Federal Bank",
+            "Statement of Account",
+            "For 24-hour banking assistance",
+            "Business Interest Checking Summary",
+            "800-324-9375"
+        ],
+        "name": "Wafd Bank",
+        "regex_transaction_type": "section",
+        "section_map": {
+            "check": "checkspaid",
+            "credit": "depositsandcredits",
+            "debit": "atm,electronicanddebitcardwithdrawals"
+        },
+        "transaction_regex": "(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>(?!.*Statement.*Balance|.*\\d+\\s+(?:Credits|Debits).*).+?)\\s+\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "transaction_termination_regex": "Total Other Transactions"
     }
 }
