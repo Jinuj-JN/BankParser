@@ -267,7 +267,7 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                 continue
 
 
-        # ----------------------------------------------------
+    # ----------------------------------------------------
     # 1️⃣ CHECKS PAID (multi-column, same line)
     # ----------------------------------------------------
 
@@ -285,34 +285,34 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                     amount = to_float(m.group("amount"))
 
         # Checks are always debits
-                #if found_check:
-                    #total_debit_calc += amount
-                    #debitCount += 1
+                if found_check:
+                    total_debit_calc += amount
+                    debitCount += 1
 
-                    #transactions.append({
-                    #"date": date_raw.replace("-", "/"),
-                    #"desc": f"CHECK {check_no}",
-                    #"amount": f"-{amount:.2f}",
-                    #"type": "check",
-                    #"section": section_name.replace(" ", "_").lower()
-                    #})
+                    transactions.append({
+                    "date": date_raw.replace("-", "/"),
+                    "desc": f"CHECK {check_no}",
+                    "amount": f"-{amount:.2f}",
+                    "type": "check",
+                    "section": section_name.replace(" ", "_").lower()
+                    })
 
 #------------------deduplication logic added-----------------------------------------------
-                if found_check:
-                    tx = {
-                            "date": date_raw.replace("-", "/"),
-                            "desc": f"CHECK {check_no}",
-                            "amount": f"-{amount:.2f}",
-                            "type": "check",
-                            "section": section_name.replace(" ", "_").lower()
-                        }
+                # if found_check:
+                #     tx = {
+                #             "date": date_raw.replace("-", "/"),
+                #             "desc": f"CHECK {check_no}",
+                #             "amount": f"-{amount:.2f}",
+                #             "type": "check",
+                #             "section": section_name.replace(" ", "_").lower()
+                #         }
 
-                    key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
-                    if key not in seen:
-                        seen.add(key)
-                        total_debit_calc += amount
-                        debitCount += 1
-                        transactions.append(tx)
+                #     key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
+                #     if key not in seen:
+                #         seen.add(key)
+                #         total_debit_calc += amount
+                #         debitCount += 1
+                #         transactions.append(tx)
 #-----------------------------------------------------------------------------------------------                    
         if found_check:
               continue  # 🚨 prevents double parsing
@@ -373,27 +373,27 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                 else:
                     continue  # safety
 
-                #transactions.append({
-                #    "date": m.group("date"),
-                #    "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
-                #    "amount": f"{amount:.2f}",
-                #    "type": transtype,
-                #    "section": section_name.replace(" ", "_").lower()
-                #})
+                transactions.append({
+                   "date": m.group("date"),
+                   "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
+                   "amount": f"{amount:.2f}",
+                   "type": transtype,
+                   "section": section_name.replace(" ", "_").lower()
+                })
 
 #------------------deduplication logic added-----------------------------------------------
-                tx = {
-                        "date": date_raw.replace("-", "/"),
-                        "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
-                        "amount": f"-{amount:.2f}",
-                        "type": transtype,
-                        "section": section_name.replace(" ", "_").lower()
-                    }
+                # tx = {
+                #         "date": date_raw.replace("-", "/"),
+                #         "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
+                #         "amount": f"-{amount:.2f}",
+                #         "type": transtype,
+                #         "section": section_name.replace(" ", "_").lower()
+                #     }
 
-                key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
-                if key not in seen:
-                    seen.add(key)
-                    transactions.append(tx)
+                # key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
+                # if key not in seen:
+                #     seen.add(key)
+                #     transactions.append(tx)
 #-----------------------------------------------------------------------------------------------                   
                 continue  # 🚨 critical (prevents double parsing)
 
@@ -430,30 +430,25 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                 else:
                     transtype = "debit"
                     total_debit_calc += amount_float
-                    debitCount += 1
-                    
+                    debitCount += 1        
 
-            #transactions.append({
-            #    "date": date_raw,
-            #    "desc": re.sub(r"\s+", " ", desc_raw).strip(),
-            #    "amount": amount_str,
-            #    "type": transtype,
-            #    "section": section_name.replace(" ", "_").lower()
-            #})
+            transactions.append({
+               "date": date_raw,
+               "desc": re.sub(r"\s+", " ", desc_raw).strip(),
+               "amount": amount_str,
+               "type": transtype,
+               "section": section_name.replace(" ", "_").lower()
+            })
 
 #------------------deduplication logic added-----------------------------------------------
-            tx = {
-                    "date": date_raw.replace("-", "/"),
-                    "desc": re.sub(r"\s+", " ", desc_raw).strip(),
-                    "amount": amount_str,
-                    "type": transtype,
-                    "section": section_name.replace(" ", "_").lower()
-                }
-
-            key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
-            if key not in seen:
-                seen.add(key)
-                transactions.append(tx)
+            # tx = {
+            #         "date": date_raw.replace("-", "/"),
+            #         "desc": re.sub(r"\s+", " ", desc_raw).strip(),
+            #         "amount": amount_str,
+            #         "type": transtype,
+            #         "section": section_name.replace(" ", "_").lower()
+            #     }
+            # commit_tx(tx,amount_float,transtype)
 #-----------------------------------------------------------------------------------------------
     
     # 5. Build Final JSON
