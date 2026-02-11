@@ -171,7 +171,7 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     check_pattern = re.compile(check_tx_regex) if check_tx_regex else None
 
     print("sec:",section_name)
-    # Helper to clean currency strings to float
+      # Helper to clean currency strings to float
     # Helper to clean currency strings to float
     def to_float(s):
         if not s: 
@@ -276,8 +276,6 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
         found_check = False
 
         if check_pattern and check_section and check_section in section_name.lower():
-           
-
            for m in check_pattern.finditer(line):
                 if m:
                     found_check=True

@@ -272,6 +272,7 @@
     },
     "americanheritage": {
         "account_name_regex": "(ID\\s+\\d+)",
+        "check_tx_regex": "(?P<check>\\d{4}\\*?)\\s+(?P<date>\\d{2}-\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Account Number: X+([0-9]+)",
@@ -289,6 +290,9 @@
         ],
         "name": "americanheritage",
         "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checks cleared"
+        },
         "section_split_regex": "(?=ID\\s+\\d+)",
         "transaction_regex": "^(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+[\\d,]+\\.\\d{2}$"
     },
