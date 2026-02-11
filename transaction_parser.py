@@ -156,7 +156,8 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
         section_name ="unknown"
     # 1. Load Regex Patterns
     section_map = regex_config.get("section_map", {})
-    tx_regex = regex_config["transaction_regex"] #signed amount
+    #tx_regex = regex_config["transaction_regex"] #signed amount
+    tx_regex = regex_config.get("transaction_regex") #signed amount
     column_tx_regex = regex_config.get("transaction_regex_columns")  # debit/credit columns
   
     pattern = re.compile(tx_regex, re.MULTILINE) if tx_regex else None
@@ -515,7 +516,11 @@ def parse_multi_account_statement(text, regex_config):
         #return parse_bank_statement_with_row(text, regex_config, "")
 
     # Split the text
-    sections = [s for s in re.split(split_pattern, text) if s.strip()]
+    #sections = [s for s in re.split(split_pattern, text) if s.strip()]
+
+    all_sections = re.split(split_pattern, text)
+    sections = [s.strip() for s in all_sections[1:] if s.strip()]  # Skip first
+
     print(f"Found {len(sections)} sections based on split pattern.")
     
     accounts_data = []
@@ -532,10 +537,12 @@ def parse_multi_account_statement(text, regex_config):
     for section_text in sections:
         counter += 1
         print("sec start***",section_text,"**** sec end")
+
         # Check if this section has transactions
-        # if not re.search(regex_config["transaction_regex"], section_text, re.MULTILINE):
-        #     print(f"Skipping section {counter} as it contains no transactions.")
-        #     continue    
+        #if not re.search(regex_config.get("transaction_regex"), section_text, re.MULTILINE):
+            #print(f"Skipping section {counter} as it contains no transactions.")
+            #continue    
+        
         # Identify Account Name/ID first
         acc_name_match = re.search(regex_config.get("account_name_regex", ""), section_text)
         current_account_type = "Unknown"

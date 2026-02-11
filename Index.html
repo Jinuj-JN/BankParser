@@ -1034,9 +1034,12 @@
             renderDashboard: (data) => {
                 // Ensure data has the standard structure
                 let standardizedData = data;
-                
+                //const hasValidAccounts = data?.result?.accounts?.length > 0 || data?.accounts?.length > 0;
+
+
                 // If data already has result.accounts structure, use it as-is
                 if (!data.result || !data.result.accounts) {
+                //if(!hasValidAccounts) {
                     // Convert single account to multi-account format
                     standardizedData = {
                         result: {
