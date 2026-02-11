@@ -487,9 +487,55 @@
         "name": "Central Pacific",
         "regex_transaction_type": "row",
         "section_map": {
-            "check": "checkspaid"
+            "check": "checks paid"
         },
         "transaction_regex": "(?P<date>\\d{1,2}/\\d{1,2})\\s+(?P<ref>\\d*)\\s+(?P<desc>.+)\\s+(?P<amount>-?[\\d,]+\\.[\\d]{2})",
+        "transaction_termination_regex": "DAILY BALANCE SUMMARY"
+    },
+    "canandaigua_national": {
+        "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d+\\*?)\\s+\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "Account Details.*?\\*{4}(\\d{4})",
+            "endBalance_regex": "Ending\\s+Balance.*?\\n.*?(?:\\$?[\\d,]+\\.\\d{2}\\s+){5}\\$?([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 0,
+            "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance_regex": "Beginning\\s+Balance[\\s\\S]*?([+-]?[\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "CNBank.com",
+            "Routing Number"
+        ],
+        "name": "Canandaigua National",
+        "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checks paid"
+        },
+        "transaction_regex": "(?P<date>\\d{1,2}/\\d{1,2}/\\d{4})\\s+(?P<desc>.+?)\\s+(?P<amount>-?\\$?[\\d,]+\\.\\d{2})\\s+\\$?[\\d,]+\\.\\d{2}",
+        "transaction_termination_regex": "DAILY BALANCE SUMMARY"
+    },
+    "telhio_bank": {
+        "check_tx_regex": "(?P<date>\\d{2}/\\d{2})\\s+(?P<check>\\d+\\*?)\\s+\\$(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "MemberNumber:\\s*\\*+(\\d{4})",
+            "endBalance_regex": "Ending\\s*Balance\\s*\\$?([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 0,
+            "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance_regex": "Beginning\\s*Balance\\s*\\$?([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "www.telhio.org",
+            "MemberNumber:"
+        ],
+        "name": "Telhio Bank",
+        "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checks paid"
+        },
+        "transaction_regex": "(?P<date>\\d{1,2}/\\d{1,2})\\s+(?P<desc>.+?)\\s+(?P<amount>-?\\$?[\\d,]+\\.\\d{2})\\s+-?\\$?[\\d,]+\\.\\d{2}",
         "transaction_termination_regex": "DAILY BALANCE SUMMARY"
     }
 }
