@@ -210,8 +210,20 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
         return r'\d{1,2}/\d{1,2}'  # Default
 
      # Extract date pattern from transaction regex for multi-line detection
-    date_pattern = get_date_pattern_from_config(tx_regex)
-    print(f"Extracted date pattern: {date_pattern}")
+
+    if tx_regex and isinstance(tx_regex, str):
+    # Use transaction_regex if available
+        date_pattern = get_date_pattern_from_config(tx_regex)
+        print(f"Extracted date pattern from transaction_regex: {date_pattern}")
+    elif column_tx_regex and isinstance(column_tx_regex, str):
+        # Fall back to column_tx_regex if transaction_regex is not available
+        date_pattern = get_date_pattern_from_config(column_tx_regex)
+        print(f"Extracted date pattern from column_tx_regex: {date_pattern}")
+    else:
+        print(f"Using default date pattern: {date_pattern}")
+
+    #date_pattern = get_date_pattern_from_config(tx_regex)
+    #print(f"Extracted date pattern: {date_pattern}")
 
     # 3. Extract Transactions
     transactions = []
