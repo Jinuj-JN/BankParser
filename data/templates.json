@@ -75,7 +75,7 @@
         "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)$",
         "transaction_termination_regex": "DailyBalanceInformation"
     },
-    "numerica": {
+    "numerica_1": {
         "check_tx_regex": "(?P<date>\\d{1,2}/\\d{2})\\s+(?P<check>\\d+(?:\\s*[A-Z])?\\*?)\\s+(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
@@ -90,10 +90,34 @@
             "numericacu.com",
             "Numerica Credit Union",
             "AtNumerica",
-            "Account Statement",
-            "Account Number"
+            "E3"
         ],
-        "name": "numerica",
+        "name": "numerica1",
+        "regex_transaction_type": "row",
+        "section_map": {
+            "check": "checksclearedsummaryforid:"
+        },
+        "account_name_regex": "ID:\\s*\\d+[A-Z]+[A-Z\\s]*",
+		"section_split_regex": "(?=ID:\\s*\\d+[A-Z]+[A-Z\\s]*)",
+        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+\\d{2}/\\d{2}\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+[\\d,.-]+\\s*(?:\\n\\s+(?!\\d{2}/\\d{2}).*)*"
+    },
+    "numerica_2": {
+        "check_tx_regex": "(?P<date>\\d{1,2}/\\d{2})\\s+(?P<check>\\d+(?:\\s*[A-Z])?\\*?)\\s+(?P<amount>[\\d,]+\\.\\d{2})",
+        "fields": {
+            "accountNumber_group": 0,
+            "accountNumber_regex": "Account\\ ?Number:\\s*([x\\d]+)",
+            "endBalance_regex": "Ending\\ ?Balance[\\w\\s,-]+ ([\\$]?\\s*[\\d,.]+\\d{2})",
+            "endBalance_regex_group": 0,
+            "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
+            "startBalance_regex": "Balance\\ ?Forward\\s*\\$([\\d,]+\\.\\d{2})",
+            "startBalance_regex_group": 0
+        },
+        "identifiers": [
+            "numericacu.com",
+            "CHECKING ID:",
+            "Numerica Credit Union"
+        ],
+        "name": "numerica2",
         "regex_transaction_type": "row",
         "section_map": {
             "check": "checksclearedsummaryforid:"
@@ -325,10 +349,10 @@
             "accountNumber_group": 0,
             "accountNumber_regex": "Account Number\\s+(\\d+)",
             "endBalance_regex": "Current Balance\\s+([\\d,]+\\.\\d{2})",
-            "endBalance_regex_group": 1,
+            "endBalance_regex_group": 0,
             "period_regex": "STATEMENT PERIOD\\s+([\\d-]+\\s+to\\s+[\\d-]+)",
             "startBalance_regex": "Previous Balance\\s+([\\d,]+\\.\\d{2})",
-            "startBalance_regex_group": 1
+            "startBalance_regex_group": 0
         },
         "identifiers": [
             "Middletown Valley Bank",

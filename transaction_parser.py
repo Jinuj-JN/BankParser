@@ -202,51 +202,6 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     creditCount = 0
     debitCount = 0
 
-    seen = set()
-
-#-------deduplication logic------------------ 
-    def normalize_desc(desc: str) -> str:
-        return re.sub(r"\s+", " ", desc).strip().lower()
-
-    def normalize_amount(amount: str) -> str:
-        try:
-            return f"{float(str(amount).replace('$','').replace(',','')):.2f}"
-        except ValueError:
-            return "0.00"
-
-    def tx_key(date, desc, amount, transtype):
-        return (
-            date,
-            normalize_desc(desc),
-            normalize_amount(amount),
-            transtype
-        )
-#-------------------------------------------------------------------------------
-
-#---- Helper method to add transaction-------------------------------------------
-    def commit_tx(tx, amount, transtype):
-        nonlocal total_credit_calc, total_debit_calc, total_fee_calc
-        nonlocal creditCount, debitCount
-
-        key = tx_key(tx["date"], tx["desc"], tx["amount"], transtype)
-        if key in seen:
-            return False
-
-        seen.add(key)
-        transactions.append(tx)
-
-        if transtype == "credit":
-            total_credit_calc += amount
-            creditCount += 1
-        elif transtype in ("debit", "check"):
-            total_debit_calc += amount
-            debitCount += 1
-        elif transtype == "fee":
-            total_fee_calc += amount
-
-        return True
-#-------------------------------------------------------------------------------
-
     clean_text = '\n'.join(line.strip() for line in text.splitlines())
 
     termination_pattern = regex_config.get("transaction_termination_regex")
@@ -296,23 +251,6 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                     "section": section_name.replace(" ", "_").lower()
                     })
 
-#------------------deduplication logic added-----------------------------------------------
-                # if found_check:
-                #     tx = {
-                #             "date": date_raw.replace("-", "/"),
-                #             "desc": f"CHECK {check_no}",
-                #             "amount": f"-{amount:.2f}",
-                #             "type": "check",
-                #             "section": section_name.replace(" ", "_").lower()
-                #         }
-
-                #     key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
-                #     if key not in seen:
-                #         seen.add(key)
-                #         total_debit_calc += amount
-                #         debitCount += 1
-                #         transactions.append(tx)
-#-----------------------------------------------------------------------------------------------                    
         if found_check:
               continue  # 🚨 prevents double parsing
 
@@ -379,21 +317,6 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                    "type": transtype,
                    "section": section_name.replace(" ", "_").lower()
                 })
-
-#------------------deduplication logic added-----------------------------------------------
-                # tx = {
-                #         "date": date_raw.replace("-", "/"),
-                #         "desc": re.sub(r"\s+", " ", m.group("desc")).strip(),
-                #         "amount": f"-{amount:.2f}",
-                #         "type": transtype,
-                #         "section": section_name.replace(" ", "_").lower()
-                #     }
-
-                # key = tx_key(tx["date"], tx["desc"], tx["amount"], tx["type"])
-                # if key not in seen:
-                #     seen.add(key)
-                #     transactions.append(tx)
-#-----------------------------------------------------------------------------------------------                   
                 continue  # 🚨 critical (prevents double parsing)
 
 
@@ -438,17 +361,6 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
                "type": transtype,
                "section": section_name.replace(" ", "_").lower()
             })
-
-#------------------deduplication logic added-----------------------------------------------
-            # tx = {
-            #         "date": date_raw.replace("-", "/"),
-            #         "desc": re.sub(r"\s+", " ", desc_raw).strip(),
-            #         "amount": amount_str,
-            #         "type": transtype,
-            #         "section": section_name.replace(" ", "_").lower()
-            #     }
-            # commit_tx(tx,amount_float,transtype)
-#-----------------------------------------------------------------------------------------------
     
     # 5. Build Final JSON
     output = { 
