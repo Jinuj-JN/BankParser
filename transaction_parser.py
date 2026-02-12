@@ -194,6 +194,25 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
         except ValueError:
             return 0.0              
 
+    #Extract the date pattern from transaction regex."""
+    def get_date_pattern_from_config(transaction_regex):
+    # Look for (?P<date>...) pattern
+
+        if not transaction_regex or not isinstance(transaction_regex, str):
+            return r'\d{1,2}/\d{1,2}'  # Default pattern
+    
+        match = re.search(r'\(\?P<date>([^)]+)\)', transaction_regex)
+        if match:
+            date_pattern = match.group(1)
+            # Clean up the pattern for use in transaction start detection
+            date_pattern = date_pattern.replace('\\', '\\\\')
+            return date_pattern
+        return r'\d{1,2}/\d{1,2}'  # Default
+
+     # Extract date pattern from transaction regex for multi-line detection
+    date_pattern = get_date_pattern_from_config(tx_regex)
+    print(f"Extracted date pattern: {date_pattern}")
+
     # 3. Extract Transactions
     transactions = []
     total_fee_calc=0.0
