@@ -171,7 +171,7 @@
         "transaction_regex": "^(?P<date>\\d{2}-\\d{2})\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)"
     },
     "suncoastcreditunion": {
-        "account_name_regex": "Suffix\\s+(\\d{4})",
+        "account_name_regex": "(Suffix\\s+\\d{4}\\b)",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Member Number:\\s*(\\d+)",
@@ -189,7 +189,7 @@
         ],
         "name": "suncoastcreditunion",
         "regex_transaction_type": "row",
-        "section_split_regex": "(?=Suffix\\s+(\\d{4}))",
+        "section_split_regex": "(?=Suffix\\s+\\d{4}\\b)",
         "transaction_regex": "^(?P<date>\\d{2}/\\d{2}/\\d{4})\\s+(?:\\d{2}/\\d{2}/\\d{4})\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+(?:-?[\\d,]+\\.\\d{2})"
     },
     "trustcobank": {
