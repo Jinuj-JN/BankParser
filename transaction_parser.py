@@ -2,6 +2,43 @@ import re
 import json
 import os
 
+def to_float(s):
+    if not s: 
+        return 0.0
+    
+    s = str(s)
+    
+    # 1. REMOVE QUOTES (Critical for CSV parsing)
+    s = s.replace('"', '').replace("'", "")
+    
+    # 2. Clean delimiters
+    s = s.replace('$', '').replace(',', '').strip()
+    
+    # 3. Handle trailing negatives
+    if s.endswith('-'):
+        s = '-' + s[:-1]
+        
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+#Extract the date pattern from transaction regex."""
+def get_date_pattern_from_config(transaction_regex):
+# Look for (?P<date>...) pattern
+
+    if not transaction_regex or not isinstance(transaction_regex, str):
+        return r'\d{1,2}/\d{1,2}'  # Default pattern
+
+    match = re.search(r'\(\?P<date>([^)]+)\)', transaction_regex)
+    if match:
+        date_pattern = match.group(1)
+        # Clean up the pattern for use in transaction start detection
+        date_pattern = date_pattern.replace('\\', '\\\\')
+        return date_pattern
+    return r'\d{1,2}/\d{1,2}'  # Default
+
+
 def parse_account_statement_with_sections(txtStatement, regex_config):
     accounts_single_data = [] 
     current_account_type = "Section Account" 
@@ -15,30 +52,7 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
     """
     Parses bank statements with sectioned transaction blocks (e.g., CBT style), using section headers to determine credit/debit and sign.
     """
-    #with open(txt_path, 'r', encoding='utf-8') as f:
-        #text = f.read()
-    def to_float(s):
-        if not s: 
-            return 0.0
-        
-        s = str(s)
-        
-        # 1. REMOVE QUOTES (Critical for CSV parsing)
-        s = s.replace('"', '').replace("'", "")
-        
-        # 2. Clean delimiters
-        s = s.replace('$', '').replace(',', '').strip()
-        
-        # 3. Handle trailing negatives
-        if s.endswith('-'):
-            s = '-' + s[:-1]
-            
-        try:
-            return float(s)
-        except ValueError:
-            return 0.0              
-
-
+                  
     tx_regex = regex_config["transaction_regex"]
     section_map = regex_config["section_map"]
     # --- NEW: TERMINATION LOGIC ---
@@ -85,7 +99,47 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
             print(f"Switched to section: {current_section} ({current_section_id})")
             continue
     # ----------------------------------------------      
+        if current_section_id == "check":
+            found_check = False  # Initialize the variable
 
+            for match in check_pattern.finditer(line):
+                if match:
+                    found_check = True
+                    # print(f"Full match: {match.group(0)}")
+                    # print(f"Date group: '{match.group('date')}'")
+                    # print(f"Check group: '{match.group('check') if match.group('check') else 'None'}'")
+                    # print(f"Amount group: '{match.group('amount')}'")
+                    # print(f"All groups: {match.groups()}")
+                    date = match.group("date")
+                    check_no = match.group("check") if match.group("check") else ""
+                    amount = to_float(match.group("amount").replace(",", ""))
+                    
+                    checkCount += 1
+                    
+                    # transactions.append({
+                    #     "date": date,
+                    #     "check": check_no,
+                    #     "amount": amount,
+                    #     "desc": f"CHECK {check_no}" if check_no else "CHECK",
+                    #     "section": current_section,
+                    #     "section_id": "check",
+                    #     "type": "check"
+                    # })
+                    
+                    transactions.append({
+                    "date": date,
+                    "desc": f"CHECK {check_no}" if check_no else "CHECK",
+                    "amount": amount,
+                    "type": "check",
+                    "section_id": "check"
+                    })
+
+            
+            # If we found a check, skip other processing for this line
+            if found_check:
+                continue
+
+    # -------- CHECK ACTIVITY (MULTI-COLUMN) --------
 
         # Match transaction lines for credit and debit
         match = pattern.match(line)
@@ -110,25 +164,6 @@ def parse_bank_statement_with_sections(txtStatement, regex_config):
                 "type": current_section_id,
             })
 
-    # -------- CHECK ACTIVITY (MULTI-COLUMN) --------
-        if current_section_id == "check":
-            for match in check_pattern.finditer(line):
-                date = match.group("date")
-                check_no = match.group("check")
-                amount = to_float(match.group("amount").replace(",", ""))
-
-                checkCount += 1
-
-                transactions.append({
-                "date": date,
-                "check": check_no,
-                "amount": amount,
-                "desc": f"CHECK {check_no}",
-                "section": current_section,
-                "section_id": "check",
-                "type": "check"
-                })
-                continue
     # ---------------End if for loop-------------------------------
 
     credit_total = sum(t["amount"] for t in transactions if t["section_id"] == "credit")
@@ -171,59 +206,25 @@ def parse_bank_statement_with_row(text, regex_config,section_name):
     check_pattern = re.compile(check_tx_regex) if check_tx_regex else None
 
     print("sec:",section_name)
-      # Helper to clean currency strings to float
-    # Helper to clean currency strings to float
-    def to_float(s):
-        if not s: 
-            return 0.0
-        
-        s = str(s)
-        
-        # 1. REMOVE QUOTES (Critical for CSV parsing)
-        s = s.replace('"', '').replace("'", "")
-        
-        # 2. Clean delimiters
-        s = s.replace('$', '').replace(',', '').strip()
-        
-        # 3. Handle trailing negatives
-        if s.endswith('-'):
-            s = '-' + s[:-1]
-            
-        try:
-            return float(s)
-        except ValueError:
-            return 0.0              
-
-    #Extract the date pattern from transaction regex."""
-    def get_date_pattern_from_config(transaction_regex):
-    # Look for (?P<date>...) pattern
-
-        if not transaction_regex or not isinstance(transaction_regex, str):
-            return r'\d{1,2}/\d{1,2}'  # Default pattern
     
-        match = re.search(r'\(\?P<date>([^)]+)\)', transaction_regex)
-        if match:
-            date_pattern = match.group(1)
-            # Clean up the pattern for use in transaction start detection
-            date_pattern = date_pattern.replace('\\', '\\\\')
-            return date_pattern
-        return r'\d{1,2}/\d{1,2}'  # Default
 
-     # Extract date pattern from transaction regex for multi-line detection
+    # ------------------------------------multi line logic-----------------------
 
-    if tx_regex and isinstance(tx_regex, str):
-    # Use transaction_regex if available
-        date_pattern = get_date_pattern_from_config(tx_regex)
-        print(f"Extracted date pattern from transaction_regex: {date_pattern}")
-    elif column_tx_regex and isinstance(column_tx_regex, str):
-        # Fall back to column_tx_regex if transaction_regex is not available
-        date_pattern = get_date_pattern_from_config(column_tx_regex)
-        print(f"Extracted date pattern from column_tx_regex: {date_pattern}")
-    else:
-        print(f"Using default date pattern: {date_pattern}")
+    # if tx_regex and isinstance(tx_regex, str):
+    # # Use transaction_regex if available
+    #     date_pattern = get_date_pattern_from_config(tx_regex)
+    #     print(f"Extracted date pattern from transaction_regex: {date_pattern}")
+    # elif column_tx_regex and isinstance(column_tx_regex, str):
+    #     # Fall back to column_tx_regex if transaction_regex is not available
+    #     date_pattern = get_date_pattern_from_config(column_tx_regex)
+    #     print(f"Extracted date pattern from column_tx_regex: {date_pattern}")
+    # else:
+    #     print(f"Using default date pattern: {date_pattern}")
 
-    #date_pattern = get_date_pattern_from_config(tx_regex)
-    #print(f"Extracted date pattern: {date_pattern}")
+    # date_pattern = get_date_pattern_from_config(tx_regex)
+    # print(f"Extracted date pattern: {date_pattern}")
+
+    # ------------------------------------multi line logic-----------------------
 
     # 3. Extract Transactions
     transactions = []

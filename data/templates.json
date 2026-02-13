@@ -127,7 +127,7 @@
         "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+\\d{2}/\\d{2}\\s+(?P<desc>.+?)\\s+(?P<amount>-?[\\d,]+\\.\\d{2})\\s+[\\d,.-]+\\s*(?:\\n\\s+(?!\\d{2}/\\d{2}).*)*"
     },
     "farmers_merchants_bank": {
-        "check_tx_regex": "(?P<date>\\d{1,2}/\\d{2})\\s+(?P<check>\\d+)(?P<missing>\\*)?\\s+(?P<amount>[\\d,]+\\.\\d{2})",
+        "check_tx_regex": "(?P<date>\\d{1,2}/\\d{2})\\s+(?:(?P<check>\\d+\\*?)\\s+)?(?P<amount>[\\d,]+\\.\\d{2})",
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "(?:AccountNo\\.?|AccountNumber)\\s+(\\d+)",
@@ -138,8 +138,8 @@
             "startBalance_regex_group": 0
         },
         "identifiers": [
-            "FARMERS & MERCHANTS BANK",
-            "Business Analyzed Checking Summary",
+            "FARMERS&MERCHANTS BANK",
+            "F&M",
             "NMLS#537388"
         ],
         "name": "farmers merchants bank",
@@ -290,8 +290,7 @@
         "section_map": {
             "check": "checks"
         },
-        "transaction_regex": "^(?P<date>\\d{2}/\\d{2})\\s+(?P<amount>[\\d,]+\\.\\d{2})\\s+(?P<desc>.+)$",
-        "transaction_regex_columns": "^(?P<date>\\d{2}/\\d{2}/\\d{2})\\s+(?P<desc>.+?)\\s{2,}(?P<debit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<credit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<balance>\\$?[\\d,]+\\.\\d{2})$",
+        "transaction_regex_columns": "^(?P<date>\\d{2}/\\d{2}/\\d{2})\\s+(?P<desc>.{1,20}).*?\\s{2,}(?P<debit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<credit>\\$?[\\d,]+\\.\\d{2})?\\s+(?P<balance>\\$?[\\d,]+\\.\\d{2})$",
         "transaction_termination_regex": "Itemization of Overdraft and Returned Item Fees"
     },
     "americanheritage": {
@@ -396,10 +395,10 @@
         "fields": {
             "accountNumber_group": 0,
             "accountNumber_regex": "Account\\ ?Number:\\s*([x\\d]+)",
-            "endBalance_regex": "([\\d,]+\\.\\d{2})",
-            "endBalance_regex_group": 4,
+            "endBalance_regex": "(?i)statement\\s+ending\\s+balance\\s+\\$?([\\d,]+\\.\\d{2})",
+            "endBalance_regex_group": 0,
             "period_regex": "[\\d]{12}\\s+(([\\d]{1,2} [A-Za-z]+, \\d{4}) - ([\\d]{1,2} [A-Za-z]+, \\d{4}))",
-            "startBalance_regex": "([\\d,]+\\.\\d{2})",
+            "startBalance_regex": "(?i)statement\\s+beginning\\s+balance\\s+\\$?([\\d,]+\\.\\d{2})",
             "startBalance_regex_group": 0
         },
         "identifiers": [
